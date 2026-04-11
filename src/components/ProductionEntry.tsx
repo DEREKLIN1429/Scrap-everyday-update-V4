@@ -39,7 +39,12 @@ function ProductionRow({ label, sectionKey, values, onChange, onSave, loading, i
           Save {label.split(' ')[0]}
         </Button>
       </div>
-      <div className="grid grid-cols-5 gap-2">
+      <div className="grid grid-cols-5 gap-2 relative">
+        {isFetching && (
+          <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center rounded-md">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        )}
         {shifts.map(shift => (
           <div key={shift} className="space-y-1">
             <Label className="text-[10px] uppercase text-gray-400 text-center block">Shift {shift}</Label>
@@ -82,6 +87,7 @@ export function ProductionEntry() {
       try {
         const formattedDate = format(date, 'yyyy-MM-dd');
         const result = await fetchSummaryAndScraps(formattedDate);
+        console.log("Fetched data for date:", formattedDate, result);
         
         const newFormData: any = {
           bicUsage: { A: '0', B: '0', C: '0', A1: '0', C1: '0' },
@@ -90,16 +96,33 @@ export function ProductionEntry() {
           mixingRubberUsage: { A: '0', B: '0', C: '0', A1: '0', C1: '0' }
         };
 
-        if (result && result.summaries) {
+        if (result && result.summaries && result.summaries.length > 0) {
           result.summaries.forEach((s: any) => {
-            const shift = s.shift;
+            const shift = String(s.shift || '').trim();
             if (newFormData.bicUsage[shift] !== undefined) {
-              newFormData.bicUsage[shift] = Math.round(Number(s.bicUsage || 0)).toString();
-              newFormData.plyUsage[shift] = Math.round(Number(s.plyUsage || 0)).toString();
-              newFormData.extrusionRubberUsage[shift] = Math.round(Number(s.extrusionRubberUsage || s.chaferUsage || 0)).toString();
-              newFormData.mixingRubberUsage[shift] = Math.round(Number(s.mixingRubberUsage || s.rubberUsage || 0)).toString();
+              // Map BIC
+              if (s.bicUsage !== undefined && s.bicUsage !== null && s.bicUsage !== '') 
+                newFormData.bicUsage[shift] = Math.round(Number(s.bicUsage)).toString();
+              
+              // Map PLY
+              if (s.plyUsage !== undefined && s.plyUsage !== null && s.plyUsage !== '')
+                newFormData.plyUsage[shift] = Math.round(Number(s.plyUsage)).toString();
+              
+              // Map Extrusion (handle multiple possible keys)
+              const extVal = s.extrusionRubberUsage ?? s.chaferUsage;
+              if (extVal !== undefined && extVal !== null && extVal !== '')
+                newFormData.extrusionRubberUsage[shift] = Math.round(Number(extVal)).toString();
+                
+              // Map Mixing (handle multiple possible keys)
+              const mixVal = s.mixingRubberUsage ?? s.rubberUsage;
+              if (mixVal !== undefined && mixVal !== null && mixVal !== '')
+                newFormData.mixingRubberUsage[shift] = Math.round(Number(mixVal)).toString();
             }
           });
+          setMessage(`Loaded data for ${result.summaries.length} shifts.`);
+        } else {
+          setMessage('No existing data found for this date in the sheet.');
+          console.warn("No summaries found in result:", result);
         }
         setFormData(newFormData);
       } catch (err: any) {
@@ -128,47 +151,48 @@ export function ProductionEntry() {
     
     try {
       const shifts = ['A', 'B', 'C', 'A1', 'C1'];
+      const dateStr = format(date, 'yyyy-MM-dd');
       
       if (sectionKey === 'All Sections') {
         // Save all shifts for all sections
         for (const shift of shifts) {
           await saveProductionSummary({
-            date: format(date, 'yyyy-MM-dd'),
+            date: dateStr,
             shift: shift,
             timestamp: new Date().toISOString(),
-            bicUsage: formData.bicUsage[shift] || 0,
-            bicScrap: 0,
-            plyUsage: formData.plyUsage[shift] || 0,
-            plyScrap: 0,
-            rubberUsage: formData.mixingRubberUsage[shift] || 0,
-            rubberScrap: 0,
-            rnScrap: 0,
-            chaferUsage: formData.extrusionRubberUsage[shift] || 0,
-            chaferScrap: 0,
-            extrusionRubberUsage: formData.extrusionRubberUsage[shift] || 0,
-            mixingRubberUsage: formData.mixingRubberUsage[shift] || 0
+            bicUsage: Number(formData.bicUsage[shift] || 0),
+            plyUsage: Number(formData.plyUsage[shift] || 0),
+            extrusionRubberUsage: Number(formData.extrusionRubberUsage[shift] || 0),
+            mixingRubberUsage: Number(formData.mixingRubberUsage[shift] || 0),
+            // Legacy fields for compatibility
+            chaferUsage: Number(formData.extrusionRubberUsage[shift] || 0),
+            rubberUsage: Number(formData.mixingRubberUsage[shift] || 0)
           });
         }
         setMessage(`All sections for all shifts saved successfully!`);
       } else {
-        // Save all shifts for one section
+        // Save all shifts for one specific section ONLY
+        // This prevents overwriting other sections with 0 if they haven't been fetched/loaded
         for (const shift of shifts) {
-          await saveProductionSummary({
-            date: format(date, 'yyyy-MM-dd'),
+          const payload: any = {
+            date: dateStr,
             shift: shift,
-            timestamp: new Date().toISOString(),
-            bicUsage: formData.bicUsage[shift] || 0,
-            bicScrap: 0,
-            plyUsage: formData.plyUsage[shift] || 0,
-            plyScrap: 0,
-            rubberUsage: formData.mixingRubberUsage[shift] || 0,
-            rubberScrap: 0,
-            rnScrap: 0,
-            chaferUsage: formData.extrusionRubberUsage[shift] || 0,
-            chaferScrap: 0,
-            extrusionRubberUsage: formData.extrusionRubberUsage[shift] || 0,
-            mixingRubberUsage: formData.mixingRubberUsage[shift] || 0
-          });
+            timestamp: new Date().toISOString()
+          };
+          
+          // Only add the field for the section being saved
+          if (sectionKey === 'bicUsage') payload.bicUsage = Number(formData.bicUsage[shift] || 0);
+          if (sectionKey === 'plyUsage') payload.plyUsage = Number(formData.plyUsage[shift] || 0);
+          if (sectionKey === 'extrusionRubberUsage') {
+            payload.extrusionRubberUsage = Number(formData.extrusionRubberUsage[shift] || 0);
+            payload.chaferUsage = Number(formData.extrusionRubberUsage[shift] || 0); // Legacy
+          }
+          if (sectionKey === 'mixingRubberUsage') {
+            payload.mixingRubberUsage = Number(formData.mixingRubberUsage[shift] || 0);
+            payload.rubberUsage = Number(formData.mixingRubberUsage[shift] || 0); // Legacy
+          }
+          
+          await saveProductionSummary(payload);
         }
         setMessage(`${sectionKey.replace('Usage', '')} data for all shifts saved successfully!`);
       }
