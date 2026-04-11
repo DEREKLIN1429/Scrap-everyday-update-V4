@@ -207,18 +207,16 @@ export function ProductionEntry() {
 
   return (
     <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Production Entry</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="max-w-xs">
-          <Label>Date</Label>
+      <CardHeader className="flex flex-row items-center justify-between pb-2 relative">
+        <div className="flex-1" />
+        <CardTitle className="text-2xl text-center flex-1 whitespace-nowrap">Production Entry</CardTitle>
+        <div className="flex items-center gap-2 flex-1 justify-end">
           <Popover>
             <PopoverTrigger asChild>
               <Button
                 variant={"outline"}
                 className={cn(
-                  "w-full justify-start text-left font-normal",
+                  "w-[240px] justify-start text-left font-normal h-10 font-bold",
                   !date && "text-muted-foreground"
                 )}
               >
@@ -226,7 +224,7 @@ export function ProductionEntry() {
                 {date ? format(date, "PPP") : <span>Pick a date</span>}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
+            <PopoverContent className="w-auto p-0" align="end">
               <Calendar
                 mode="single"
                 selected={date}
@@ -236,7 +234,8 @@ export function ProductionEntry() {
             </PopoverContent>
           </Popover>
         </div>
-
+      </CardHeader>
+      <CardContent className="space-y-6 pt-4">
         <div className="space-y-4">
           <ProductionRow 
             label="Calender PLY & CH (kg)" 

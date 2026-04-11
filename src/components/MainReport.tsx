@@ -51,49 +51,18 @@ export function MainReport() {
   useEffect(() => {
     setControls(
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="h-10 font-bold">
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {date?.from ? (
-                  date.to ? (
-                    <>
-                      {format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}
-                    </>
-                  ) : (
-                    format(date.from, "LLL dd, y")
-                  )
-                ) : (
-                  <span>Pick a date range</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <Calendar
-                initialFocus
-                mode="range"
-                defaultMonth={date?.from}
-                selected={date}
-                onSelect={setDate}
-                numberOfMonths={1}
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
-
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={copyValuesOnly} title="Copy values only (for Excel)" className="h-10 font-bold">
             {copiedText ? <Check className="h-4 w-4 mr-2 text-green-600" /> : <Copy className="h-4 w-4 mr-2" />}
-            Values
+            <span className="hidden sm:inline">Values</span>
           </Button>
           <Button variant="outline" size="sm" onClick={copyAsPicture} title="Copy table as picture" className="h-10 font-bold">
             {copiedImage ? <Check className="h-4 w-4 mr-2 text-green-600" /> : <ImageIcon className="h-4 w-4 mr-2" />}
-            Picture
+            <span className="hidden sm:inline">Picture</span>
           </Button>
           <Button variant="outline" size="sm" onClick={() => loadData(true)} disabled={loading} className="h-10 font-bold">
             <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} />
-            Reload
+            <span className="hidden sm:inline">Reload</span>
           </Button>
           <Button 
             variant={isEditingFont ? "default" : "outline"} 
@@ -103,13 +72,13 @@ export function MainReport() {
             className="h-10 font-bold"
           >
             <Type className="h-4 w-4 mr-2" />
-            Font
+            <span className="hidden sm:inline">Font</span>
           </Button>
         </div>
       </div>
     );
     return () => setControls(null);
-  }, [date, loading, copiedText, copiedImage, isEditingFont]);
+  }, [loading, copiedText, copiedImage, isEditingFont]);
 
   const days = date?.from && date?.to 
     ? eachDayOfInterval({ start: date.from, end: date.to }) 
@@ -476,17 +445,48 @@ export function MainReport() {
 
       <Card className="overflow-hidden">
         <div ref={tableRef} className="bg-white">
-          <CardHeader className="text-center pb-2 relative">
-            <CardTitle className="text-2xl">MRI Production Weekly Report MRI 生產週報</CardTitle>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="absolute right-4 top-4 h-8 w-8 p-0" 
-              onClick={() => setIsEditingTargets(true)}
-              title="Target Settings"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
+          <CardHeader className="flex flex-row items-center justify-between pb-2 relative">
+            <div className="flex-1" />
+            <CardTitle className="text-2xl text-center flex-1 whitespace-nowrap">2026 MRI Production Weekly Report</CardTitle>
+            <div className="flex items-center gap-2 flex-1 justify-end">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-10 font-bold">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {date?.from ? (
+                      date.to ? (
+                        <>
+                          {format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}
+                        </>
+                      ) : (
+                        format(date.from, "LLL dd, y")
+                      )
+                    ) : (
+                      <span>Pick a date range</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={date?.from}
+                    selected={date}
+                    onSelect={setDate}
+                    numberOfMonths={1}
+                  />
+                </PopoverContent>
+              </Popover>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-8 w-8 p-0" 
+                onClick={() => setIsEditingTargets(true)}
+                title="Target Settings"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto">
             <div className="p-4">
