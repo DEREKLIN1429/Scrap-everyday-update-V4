@@ -207,6 +207,8 @@ export function ScrapEntry() {
                   <SelectItem value="Extrusion">Extrusion</SelectItem>
                   <SelectItem value="Calendering">Calendering</SelectItem>
                   <SelectItem value="Cutting">Cutting</SelectItem>
+                  <SelectItem value="Tire building">Tire building</SelectItem>
+                  <SelectItem value="Curing">Curing</SelectItem>
                   <SelectItem value="Manual">Manual key in</SelectItem>
                 </SelectContent>
               </Select>

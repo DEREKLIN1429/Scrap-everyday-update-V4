@@ -75,7 +75,9 @@ export function ProductionEntry() {
     bicUsage: { A: '', B: '', C: '', A1: '', C1: '' },
     plyUsage: { A: '', B: '', C: '', A1: '', C1: '' },
     extrusionRubberUsage: { A: '', B: '', C: '', A1: '', C1: '' },
-    mixingRubberUsage: { A: '', B: '', C: '', A1: '', C1: '' }
+    mixingRubberUsage: { A: '', B: '', C: '', A1: '', C1: '' },
+    tireBuildingUsage: { A: '', B: '', C: '', A1: '', C1: '' },
+    curingUsage: { A: '', B: '', C: '', A1: '', C1: '' }
   });
   const [savingSection, setSavingSection] = useState<string | null>(null);
 
@@ -93,7 +95,9 @@ export function ProductionEntry() {
           bicUsage: { A: '0', B: '0', C: '0', A1: '0', C1: '0' },
           plyUsage: { A: '0', B: '0', C: '0', A1: '0', C1: '0' },
           extrusionRubberUsage: { A: '0', B: '0', C: '0', A1: '0', C1: '0' },
-          mixingRubberUsage: { A: '0', B: '0', C: '0', A1: '0', C1: '0' }
+          mixingRubberUsage: { A: '0', B: '0', C: '0', A1: '0', C1: '0' },
+          tireBuildingUsage: { A: '0', B: '0', C: '0', A1: '0', C1: '0' },
+          curingUsage: { A: '0', B: '0', C: '0', A1: '0', C1: '0' }
         };
 
         if (result && result.summaries && result.summaries.length > 0) {
@@ -117,6 +121,14 @@ export function ProductionEntry() {
               const mixVal = s.mixingRubberUsage ?? s.rubberUsage;
               if (mixVal !== undefined && mixVal !== null && mixVal !== '')
                 newFormData.mixingRubberUsage[shift] = Math.round(Number(mixVal)).toString();
+
+              // Map Tire Building
+              if (s.tireBuildingUsage !== undefined && s.tireBuildingUsage !== null && s.tireBuildingUsage !== '')
+                newFormData.tireBuildingUsage[shift] = Math.round(Number(s.tireBuildingUsage)).toString();
+
+              // Map Curing
+              if (s.curingUsage !== undefined && s.curingUsage !== null && s.curingUsage !== '')
+                newFormData.curingUsage[shift] = Math.round(Number(s.curingUsage)).toString();
             }
           });
           setMessage(`Loaded data for ${result.summaries.length} shifts.`);
@@ -164,6 +176,8 @@ export function ProductionEntry() {
             plyUsage: Number(formData.plyUsage[shift] || 0),
             extrusionRubberUsage: Number(formData.extrusionRubberUsage[shift] || 0),
             mixingRubberUsage: Number(formData.mixingRubberUsage[shift] || 0),
+            tireBuildingUsage: Number(formData.tireBuildingUsage[shift] || 0),
+            curingUsage: Number(formData.curingUsage[shift] || 0),
             // Legacy fields for compatibility
             chaferUsage: Number(formData.extrusionRubberUsage[shift] || 0),
             rubberUsage: Number(formData.mixingRubberUsage[shift] || 0)
@@ -191,6 +205,8 @@ export function ProductionEntry() {
             payload.mixingRubberUsage = Number(formData.mixingRubberUsage[shift] || 0);
             payload.rubberUsage = Number(formData.mixingRubberUsage[shift] || 0); // Legacy
           }
+          if (sectionKey === 'tireBuildingUsage') payload.tireBuildingUsage = Number(formData.tireBuildingUsage[shift] || 0);
+          if (sectionKey === 'curingUsage') payload.curingUsage = Number(formData.curingUsage[shift] || 0);
           
           await saveProductionSummary(payload);
         }
@@ -272,6 +288,26 @@ export function ProductionEntry() {
             sectionKey="extrusionRubberUsage"
             values={formData.extrusionRubberUsage} 
             onChange={(shift, val) => handleShiftChange('extrusionRubberUsage', shift, val)}
+            onSave={handleSaveSection}
+            loading={loading}
+            isFetching={isFetching}
+            savingSection={savingSection}
+          />
+          <ProductionRow 
+            label="Tire Building (kg)" 
+            sectionKey="tireBuildingUsage"
+            values={formData.tireBuildingUsage} 
+            onChange={(shift, val) => handleShiftChange('tireBuildingUsage', shift, val)}
+            onSave={handleSaveSection}
+            loading={loading}
+            isFetching={isFetching}
+            savingSection={savingSection}
+          />
+          <ProductionRow 
+            label="Curing (kg)" 
+            sectionKey="curingUsage"
+            values={formData.curingUsage} 
+            onChange={(shift, val) => handleShiftChange('curingUsage', shift, val)}
             onSave={handleSaveSection}
             loading={loading}
             isFetching={isFetching}

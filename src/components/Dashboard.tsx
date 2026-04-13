@@ -176,6 +176,8 @@ export function Dashboard() {
               <SelectItem value="Extrusion">Extrusion</SelectItem>
               <SelectItem value="Calendering">Calendering</SelectItem>
               <SelectItem value="Cutting">Cutting</SelectItem>
+              <SelectItem value="Tire building">Tire building</SelectItem>
+              <SelectItem value="Curing">Curing</SelectItem>
             </SelectContent>
           </Select>
         </div>
