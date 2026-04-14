@@ -1,15 +1,18 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { format, startOfMonth } from 'date-fns';
-import { fetchRangeData, fetchTargets, getWebAppUrl } from './api';
+import { fetchRangeData, fetchTargets, getWebAppUrl, saveTargets } from './api';
 
 interface DataContextType {
   data: any;
   targets: any;
+  configs: any[];
   loading: boolean;
   error: string;
   loadData: (force?: boolean) => Promise<void>;
   loadTargets: () => Promise<void>;
   updateTargets: (newTargets: any) => void;
+  saveTargetsToSheet: (newTargets: any) => Promise<void>;
+  updateScrapReasonInSheet: (timestamp: string, newReason: string) => Promise<void>;
   isSyncingTargets: boolean;
 }
 
@@ -17,6 +20,7 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<any>(null);
+  const [configs, setConfigs] = useState<any[]>([]);
   const [targets, setTargets] = useState<any>({
     bic_scrap: { value: 0, period: 'daily' },
     ply_scrap: { value: 0, period: 'daily' },
@@ -41,6 +45,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setIsSyncingTargets(true);
     try {
       const targetResult = await fetchTargets();
+      console.log('Targets fetched:', targetResult);
+      if (targetResult && targetResult.configs) {
+        setConfigs(targetResult.configs);
+      } else if (targetResult && targetResult.config) {
+        setConfigs([targetResult.config]);
+      } else {
+        console.warn('No configs found in targetResult. Ensure Google Apps Script returns a "configs" array with id and password.');
+      }
       if (targetResult && targetResult.targets) {
         const newTargets: any = { ...targets };
         targetResult.targets.forEach((t: any) => {
@@ -72,6 +84,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [targets]);
 
+  const saveTargetsToSheet = useCallback(async (newTargets: any) => {
+    if (!getWebAppUrl()) return;
+    setIsSyncingTargets(true);
+    try {
+      await saveTargets(newTargets);
+      setTargets(newTargets);
+    } catch (err) {
+      console.error('Failed to save targets:', err);
+      throw err;
+    } finally {
+      setIsSyncingTargets(false);
+    }
+  }, []);
+
   const loadData = useCallback(async (force = false) => {
     if (!getWebAppUrl()) return;
     
@@ -99,13 +125,28 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [data, lastFetchRange]);
 
+  const updateScrapReasonInSheet = useCallback(async (timestamp: string, newReason: string) => {
+    if (!getWebAppUrl()) return;
+    setLoading(true);
+    try {
+      const { updateScrapReason } = await import('./api');
+      await updateScrapReason(timestamp, newReason);
+      await loadData(true);
+    } catch (err) {
+      console.error('Failed to update scrap reason:', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [loadData]);
+
   useEffect(() => {
     loadTargets();
     loadData();
   }, []);
 
   return (
-    <DataContext.Provider value={{ data, targets, loading, error, loadData, loadTargets, updateTargets, isSyncingTargets }}>
+    <DataContext.Provider value={{ data, targets, configs, loading, error, loadData, loadTargets, updateTargets, saveTargetsToSheet, updateScrapReasonInSheet, isSyncingTargets }}>
       {children}
     </DataContext.Provider>
   );

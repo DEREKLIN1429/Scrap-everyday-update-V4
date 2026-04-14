@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
-import { Calendar as CalendarIcon, Loader2, RefreshCw, ImageIcon, Check } from 'lucide-react';
+import { Calendar as CalendarIcon, Loader2, RefreshCw, ImageIcon, Check, Edit2, Save, X } from 'lucide-react';
 import { Calendar } from '@/src/components/ui/calendar';
 import { toBlob } from 'html-to-image';
 import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover';
@@ -14,12 +14,17 @@ import { useData } from '@/src/lib/DataContext';
 
 export function Dashboard() {
   const [date, setDate] = useState<Date>(new Date());
-  const { data, loading, error, loadData } = useData();
+  const { data, loading, error, loadData, updateScrapReasonInSheet } = useData();
   
   const [shiftFilter, setShiftFilter] = useState('All');
   const [sectionFilter, setSectionFilter] = useState('All');
+  const [materialFilter, setMaterialFilter] = useState('All');
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [copiedScrap, setCopiedScrap] = useState(false);
+  
+  const [editingScrap, setEditingScrap] = useState<string | null>(null);
+  const [editReason, setEditReason] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
   
   const summaryRef = useRef<HTMLDivElement>(null);
   const scrapTableRef = useRef<HTMLDivElement>(null);
@@ -94,8 +99,15 @@ export function Dashboard() {
   const filteredScraps = scraps.filter((scrap: any) => {
     if (shiftFilter !== 'All' && scrap.shift !== shiftFilter) return false;
     if (sectionFilter !== 'All' && scrap.section !== sectionFilter) return false;
+    if (materialFilter !== 'All' && scrap.material !== materialFilter) return false;
     return true;
   });
+
+  const getSectionScrapTotal = (material: string, section: string) => {
+    return scraps
+      .filter((s: any) => s.material === material && s.section === section)
+      .reduce((sum: number, s: any) => sum + Number(s.weight || 0), 0);
+  };
 
   const getScrapTotal = (material: string) => {
     return filteredScraps
@@ -148,6 +160,24 @@ export function Dashboard() {
     }
   };
 
+  const handleSaveReason = async (timestamp: string) => {
+    if (!timestamp) return;
+    setIsUpdating(true);
+    try {
+      await updateScrapReasonInSheet(timestamp, editReason);
+      setEditingScrap(null);
+    } catch (err) {
+      alert('Failed to update reason');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const startEditing = (scrap: any) => {
+    setEditingScrap(scrap.timestamp);
+    setEditReason(scrap.reason || '');
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between bg-white p-4 rounded-lg border shadow-sm">
@@ -178,6 +208,23 @@ export function Dashboard() {
               <SelectItem value="Cutting">Cutting</SelectItem>
               <SelectItem value="Tire building">Tire building</SelectItem>
               <SelectItem value="Curing">Curing</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={materialFilter} onValueChange={setMaterialFilter}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="All">All Types</SelectItem>
+              <SelectItem value="BIC">BIC (鋼絲)</SelectItem>
+              <SelectItem value="PLY">PLY (簾紗)</SelectItem>
+              <SelectItem value="Rubber">Rubber (膠料)</SelectItem>
+              <SelectItem value="RN">RN Generation</SelectItem>
+              <SelectItem value="Chafer">Chafer (防擦布)</SelectItem>
+              <SelectItem value="Fabric">Fabric</SelectItem>
+              <SelectItem value="Carbon">Carbon</SelectItem>
+              <SelectItem value="Chemical">Chemical</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -243,6 +290,14 @@ export function Dashboard() {
                 <span className="text-muted-foreground">Scrap Rate:</span>
                 <span className="font-bold">{hasData ? (calculateRate(displayBicScrap, summary.bicUsage) ?? '0') : ''}</span>
               </div>
+              {hasData && (
+                <div className="mt-2 pt-2 border-t border-dashed text-[10px] space-y-1">
+                  <div className="flex justify-between text-gray-500">
+                    <span>Cutting:</span>
+                    <span>{getSectionScrapTotal('BIC', 'Cutting').toFixed(1)} kg</span>
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -265,6 +320,18 @@ export function Dashboard() {
                 <span className="text-muted-foreground">Scrap Rate:</span>
                 <span className="font-bold">{hasData ? (calculateRate(displayPlyScrap, summary.plyUsage) ?? '0') : ''}</span>
               </div>
+              {hasData && (
+                <div className="mt-2 pt-2 border-t border-dashed text-[10px] space-y-1">
+                  <div className="flex justify-between text-gray-500">
+                    <span>Calendering:</span>
+                    <span>{getSectionScrapTotal('PLY', 'Calendering').toFixed(1)} kg</span>
+                  </div>
+                  <div className="flex justify-between text-gray-500">
+                    <span>Cutting:</span>
+                    <span>{getSectionScrapTotal('PLY', 'Cutting').toFixed(1)} kg</span>
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -287,6 +354,18 @@ export function Dashboard() {
                 <span className="text-muted-foreground">Scrap Rate:</span>
                 <span className="font-bold">{hasData ? (calculateRate(displayRubberScrap, summary.rubberUsage) ?? '0') : ''}</span>
               </div>
+              {hasData && (
+                <div className="mt-2 pt-2 border-t border-dashed text-[10px] space-y-1">
+                  <div className="flex justify-between text-gray-500">
+                    <span>Mixing:</span>
+                    <span>{getSectionScrapTotal('Rubber', 'Mixing').toFixed(1)} kg</span>
+                  </div>
+                  <div className="flex justify-between text-gray-500">
+                    <span>Tire building:</span>
+                    <span>{getSectionScrapTotal('Rubber', 'Tire building').toFixed(1)} kg</span>
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -309,6 +388,18 @@ export function Dashboard() {
                 <span className="text-muted-foreground">Scrap Rate:</span>
                 <span className="font-bold">{hasData ? (calculateRate(displayRnScrap, summary.extrusionRubberUsage) ?? '0') : ''}</span>
               </div>
+              {hasData && (
+                <div className="mt-2 pt-2 border-t border-dashed text-[10px] space-y-1">
+                  <div className="flex justify-between text-gray-500">
+                    <span>Extrusion:</span>
+                    <span>{getSectionScrapTotal('Extrusion Rubber', 'Extrusion').toFixed(1)} kg</span>
+                  </div>
+                  <div className="flex justify-between text-gray-500">
+                    <span>Tire building:</span>
+                    <span>{getSectionScrapTotal('RN', 'Tire building').toFixed(1)} kg</span>
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -356,7 +447,49 @@ export function Dashboard() {
                     <TableCell className="font-medium">{scrap.material}</TableCell>
                     <TableCell>{scrap.materialName || '-'}</TableCell>
                     <TableCell>{typeof scrap.weight === 'number' ? (scrap.weight === 0 ? '0' : scrap.weight.toFixed(1)) : (scrap.weight || '0')}</TableCell>
-                    <TableCell>{scrap.reason}</TableCell>
+                    <TableCell>
+                      {editingScrap === scrap.timestamp ? (
+                        <div className="flex items-center gap-2">
+                          <input 
+                            type="text" 
+                            className="border rounded px-2 py-1 text-sm flex-1"
+                            value={editReason}
+                            onChange={(e) => setEditReason(e.target.value)}
+                            autoFocus
+                          />
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-green-600"
+                            onClick={() => handleSaveReason(scrap.timestamp)}
+                            disabled={isUpdating}
+                          >
+                            {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-red-600"
+                            onClick={() => setEditingScrap(null)}
+                            disabled={isUpdating}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between group">
+                          <span>{scrap.reason}</span>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => startEditing(scrap)}
+                          >
+                            <Edit2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {scrap.imageUrl ? (
                         <a href={scrap.imageUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
