@@ -222,20 +222,14 @@ export function RNReport() {
   const copyAsPicture = useCallback(async () => {
     if (!tableRef.current) return;
     try {
-      // Create a temporary container to hold both table and charts for capture
+      // Create a temporary container to hold the table for capture
       const container = document.createElement('div');
       container.style.padding = '20px';
       container.style.background = '#ffffff';
       container.style.width = '1200px'; // Fixed width for consistent capture
       
       const tableClone = tableRef.current.cloneNode(true) as HTMLDivElement;
-      tableClone.style.marginBottom = '20px';
       container.appendChild(tableClone);
-      
-      if (chartRef.current) {
-        const chartClone = chartRef.current.cloneNode(true) as HTMLDivElement;
-        container.appendChild(chartClone);
-      }
       
       document.body.appendChild(container);
       const blob = await toBlob(container, { backgroundColor: '#ffffff', pixelRatio: 2 });
@@ -246,7 +240,33 @@ export function RNReport() {
       setCopiedImage(true);
       setTimeout(() => setCopiedImage(false), 2000);
     } catch (err) {
-      console.error('Failed to copy picture', err);
+      console.error('Failed to copy table picture', err);
+    }
+  }, []);
+
+  const [copiedChartImage, setCopiedChartImage] = useState(false);
+
+  const copyChartsAsPicture = useCallback(async () => {
+    if (!chartRef.current) return;
+    try {
+      const container = document.createElement('div');
+      container.style.padding = '20px';
+      container.style.background = '#ffffff';
+      container.style.width = '1200px'; // Fixed width to ensure chart displays well
+      
+      const chartClone = chartRef.current.cloneNode(true) as HTMLDivElement;
+      container.appendChild(chartClone);
+      
+      document.body.appendChild(container);
+      const blob = await toBlob(container, { backgroundColor: '#ffffff', pixelRatio: 2 });
+      document.body.removeChild(container);
+
+      if (!blob) return;
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      setCopiedChartImage(true);
+      setTimeout(() => setCopiedChartImage(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy charts picture', err);
     }
   }, []);
 
@@ -294,7 +314,7 @@ export function RNReport() {
             </Button>
             <Button variant="outline" size="sm" onClick={copyAsPicture} title="Copy table as picture" className="h-10 font-bold">
               {copiedImage ? <Check className="h-4 w-4 mr-2 text-green-600" /> : <ImageIcon className="h-4 w-4 mr-2" />}
-              <span className="hidden sm:inline">Picture</span>
+              <span className="hidden sm:inline">Copy Table</span>
             </Button>
             <Button variant="outline" size="sm" onClick={() => loadData(true)} disabled={loading} className="h-10 font-bold">
               <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} />
@@ -437,7 +457,7 @@ export function RNReport() {
       }
     }
 
-    const isBelowTarget = rowId.includes('rate') && hasData && parseFloat(displayValue) < (targets?.rn_rate?.value || 95);
+    const isOverTarget = rowId.includes('rate') && hasData && targets?.rn_rate?.value > 0 && parseFloat(displayValue) > targets.rn_rate.value;
 
     return (
       <TableCell 
@@ -445,7 +465,7 @@ export function RNReport() {
         className={cn(
           "border border-gray-300 text-center transition-colors",
           hasData && "cursor-pointer hover:bg-black/5",
-          isBelowTarget && "text-red-600 font-bold"
+          isOverTarget && "text-red-600 font-bold"
         )}
         style={{ fontSize: rowFontSizes[rowId] ? `${rowFontSizes[rowId]}px` : undefined }}
         onDoubleClick={() => {
@@ -470,10 +490,11 @@ export function RNReport() {
     const isRate = rowId.includes('rate');
     const displaySum = sum.toFixed(0);
     const displayAvg = isRate ? avg.toFixed(1) + '%' : avg.toFixed(0);
+    const isOverTarget = isRate && targets?.rn_rate?.value > 0 && avg > targets.rn_rate.value;
 
     if (isRate) {
       return (
-        <TableCell colSpan={2} className="border border-gray-300 text-center font-bold bg-gray-50" style={{ fontSize: rowFontSizes[rowId] ? `${rowFontSizes[rowId]}px` : undefined }}>
+        <TableCell colSpan={2} className={cn("border border-gray-300 text-center font-bold bg-gray-50", isOverTarget && "text-red-600")} style={{ fontSize: rowFontSizes[rowId] ? `${rowFontSizes[rowId]}px` : undefined }}>
           {displayAvg}
         </TableCell>
       );
@@ -659,8 +680,15 @@ export function RNReport() {
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" ref={chartRef}>
-        <Card>
+      <div className="relative">
+        <div className="absolute top-0 right-0 z-10 flex gap-2">
+          <Button variant="outline" size="sm" onClick={copyChartsAsPicture} title="Copy charts as picture" className="font-bold">
+            {copiedChartImage ? <Check className="h-4 w-4 mr-2 text-green-600" /> : <ImageIcon className="h-4 w-4 mr-2" />}
+            <span className="hidden sm:inline">Copy Charts</span>
+          </Button>
+        </div>
+        <div className="grid grid-cols-1 gap-6 pt-10" ref={chartRef}>
+          <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-primary" />
@@ -670,17 +698,17 @@ export function RNReport() {
           <CardContent>
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 25 }} barCategoryGap="25%" barGap={8}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="date" />
-                  <YAxis />
+                  <XAxis dataKey="date" angle={-45} textAnchor="end" height={60} tick={{ fontSize: 14 }} />
+                  <YAxis tick={{ fontSize: 14 }} />
                   <Tooltip formatter={(v: number) => [`${(v/1000).toFixed(2)} t`, '']} />
-                  <Legend />
+                  <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: '20px', fontSize: '14px' }} />
                   <Bar dataKey="usage" name="Usage (t)" fill="#2563eb" radius={[4, 4, 0, 0]}>
-                    <LabelList dataKey="usage" position="top" formatter={(v: number) => (v/1000).toFixed(2)} style={{ fontSize: '10px', fill: '#2563eb', fontWeight: 'bold' }} />
+                    <LabelList dataKey="usage" position="top" formatter={(v: number) => (v/1000).toFixed(2)} style={{ fontSize: '14px', fill: '#2563eb', fontWeight: 'bold' }} />
                   </Bar>
                   <Bar dataKey="rn" name="RN (t)" fill="#dc2626" radius={[4, 4, 0, 0]}>
-                    <LabelList dataKey="rn" position="top" formatter={(v: number) => (v/1000).toFixed(2)} style={{ fontSize: '10px', fill: '#dc2626', fontWeight: 'bold' }} />
+                    <LabelList dataKey="rn" position="top" formatter={(v: number) => (v/1000).toFixed(2)} style={{ fontSize: '14px', fill: '#dc2626', fontWeight: 'bold' }} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -698,14 +726,14 @@ export function RNReport() {
           <CardContent>
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 25 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="date" />
-                  <YAxis unit="%" domain={[0, 100]} />
+                  <XAxis dataKey="date" angle={-45} textAnchor="end" height={60} tick={{ fontSize: 14 }} />
+                  <YAxis unit="%" domain={[0, 100]} tick={{ fontSize: 14 }} />
                   <Tooltip formatter={(value: number) => [`${value.toFixed(1)}%`, 'Rate']} />
-                  <Legend />
+                  <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: '20px', fontSize: '14px' }} />
                   <Line type="monotone" dataKey="rate" name="RN Rate" stroke="#16a34a" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }}>
-                    <LabelList dataKey="rate" position="top" formatter={(v: number) => v.toFixed(1) + '%'} style={{ fontSize: '10px', fill: '#16a34a', fontWeight: 'bold' }} />
+                    <LabelList dataKey="rate" position="top" formatter={(v: number) => v.toFixed(1) + '%'} style={{ fontSize: '14px', fill: '#16a34a', fontWeight: 'bold' }} />
                   </Line>
                   <Line type="stepAfter" dataKey="target" name="Target" stroke="#000000" strokeDasharray="5 5" strokeWidth={1} dot={false} />
                 </LineChart>
@@ -713,6 +741,7 @@ export function RNReport() {
             </div>
           </CardContent>
         </Card>
+        </div>
       </div>
 
       {detailModal && (

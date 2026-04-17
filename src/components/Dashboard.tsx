@@ -340,7 +340,7 @@ export function Dashboard() {
         <div className="text-red-500 text-sm font-medium">{error}</div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5" ref={summaryRef}>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4" ref={summaryRef}>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-xl">BIC (鋼絲)</CardTitle>

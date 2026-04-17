@@ -396,7 +396,7 @@ export function MainReport() {
         key={d.toISOString()} 
         className={cn(
           "border border-gray-300 text-center cursor-pointer hover:bg-black/5 transition-colors",
-          isOverTarget && "bg-red-100 text-red-700 font-bold"
+          isOverTarget && "text-red-600 font-bold"
         )}
         style={{ fontSize: rowFontSizes[rowId] ? `${rowFontSizes[rowId]}px` : undefined }}
         onDoubleClick={() => {
