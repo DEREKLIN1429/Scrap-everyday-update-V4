@@ -468,8 +468,16 @@ export function RNReport() {
     const avg = numericValues.length > 0 ? sum / numericValues.length : 0;
 
     const isRate = rowId.includes('rate');
-    const displaySum = isRate ? '-' : sum.toFixed(0);
+    const displaySum = sum.toFixed(0);
     const displayAvg = isRate ? avg.toFixed(1) + '%' : avg.toFixed(0);
+
+    if (isRate) {
+      return (
+        <TableCell colSpan={2} className="border border-gray-300 text-center font-bold bg-gray-50" style={{ fontSize: rowFontSizes[rowId] ? `${rowFontSizes[rowId]}px` : undefined }}>
+          {displayAvg}
+        </TableCell>
+      );
+    }
 
     return (
       <>
