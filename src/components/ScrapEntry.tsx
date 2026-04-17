@@ -14,6 +14,7 @@ import { useData } from '@/src/lib/DataContext';
 
 export function ScrapEntry() {
   const [date, setDate] = useState<Date>(new Date());
+  
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);

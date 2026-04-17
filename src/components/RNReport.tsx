@@ -7,12 +7,13 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/pop
 import { Button } from '@/src/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/src/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { cn } from '@/src/lib/utils';
 import { DateRange } from 'react-day-picker';
 import { useSidebar } from '@/src/lib/SidebarContext';
 import { useData } from '@/src/lib/DataContext';
 import { startOfWeek, endOfWeek } from 'date-fns';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts';
 
 const rowDefinitions = [
   ...['A', 'B', 'C', 'A1', 'C1'].flatMap(shift => [
@@ -26,16 +27,17 @@ const rowDefinitions = [
 ];
 
 export function RNReport() {
-  const [date, setDate] = useState<DateRange | undefined>({
-    from: startOfWeek(new Date(), { weekStartsOn: 1 }),
-    to: endOfWeek(new Date(), { weekStartsOn: 1 }),
-  });
-  const { data, targets, loading, error, loadData } = useData();
+  const { 
+    data, targets, loading, error, loadData,
+    globalDateRange: date, setGlobalDateRange: setDate,
+    selectedWeek, setSelectedWeek,
+    numWeeks, setNumWeeks
+  } = useData();
   const [activeTab, setActiveTab] = useState<'shift' | 'material'>('shift');
   const [copiedText, setCopiedText] = useState(false);
   const [copiedImage, setCopiedImage] = useState(false);
   const [isEditingFont, setIsEditingFont] = useState(false);
-  const [detailModal, setDetailModal] = useState<{date: Date, shift?: string} | null>(null);
+  const [detailModal, setDetailModal] = useState<{date: Date, shift?: string, materialName?: string} | null>(null);
   const [highlightedCols, setHighlightedCols] = useState<number[]>([]);
   const [highlightedRows, setHighlightedRows] = useState<number[]>([]);
   const [modalCopied, setModalCopied] = useState(false);
@@ -326,6 +328,10 @@ export function RNReport() {
       dayScraps = dayScraps.filter((s: any) => s.shift === detailModal.shift);
     }
 
+    if (detailModal.materialName) {
+      dayScraps = dayScraps.filter((s: any) => s.materialName === detailModal.materialName);
+    }
+
     return dayScraps.filter((s: any) => 
       s.material === 'Extrusion Rubber' || 
       s.material === 'RN' || 
@@ -412,11 +418,21 @@ export function RNReport() {
     let displayValue = '';
     if (hasData) {
       if (typeof value === 'number') {
-        displayValue = value === 0 ? '0' : (rowId.includes('rate') ? value.toFixed(1) : value.toFixed(0));
+        if (Math.abs(value) < 0.01) {
+          displayValue = '';
+        } else {
+          displayValue = rowId.includes('rate') ? value.toFixed(1) : value.toFixed(0);
+          if (displayValue === '0' || displayValue === '0.0') displayValue = '';
+        }
       } else {
-        displayValue = value || '0';
+        displayValue = value || '';
+        if (displayValue === '0' || displayValue === '0%' || displayValue === '0.0%') {
+          displayValue = '';
+        }
         if (rowId.includes('rate') && displayValue.includes('%')) {
-          displayValue = parseFloat(displayValue).toFixed(1) + '%';
+          const numeric = parseFloat(displayValue);
+          if (isNaN(numeric) || numeric < 0.01) displayValue = '';
+          else displayValue = numeric.toFixed(1) + '%';
         }
       }
     }
@@ -434,12 +450,36 @@ export function RNReport() {
         style={{ fontSize: rowFontSizes[rowId] ? `${rowFontSizes[rowId]}px` : undefined }}
         onDoubleClick={() => {
           if (hasData) {
-            setDetailModal({ date: d, shift });
+            setDetailModal({ date: d, shift, materialName });
           }
         }}
       >
         {displayValue}
       </TableCell>
+    );
+  };
+
+  const renderSummaryCells = (values: any[], rowId: string) => {
+    const numericValues = values
+      .map(v => (typeof v === 'number' ? v : parseFloat(v)))
+      .filter(v => !isNaN(v) && v !== 0);
+    
+    const sum = numericValues.reduce((acc, v) => acc + v, 0);
+    const avg = numericValues.length > 0 ? sum / numericValues.length : 0;
+
+    const isRate = rowId.includes('rate');
+    const displaySum = isRate ? '-' : sum.toFixed(0);
+    const displayAvg = isRate ? avg.toFixed(1) + '%' : avg.toFixed(0);
+
+    return (
+      <>
+        <TableCell className="border border-gray-300 text-center font-bold bg-gray-50" style={{ fontSize: rowFontSizes[rowId] ? `${rowFontSizes[rowId]}px` : undefined }}>
+          {displaySum}
+        </TableCell>
+        <TableCell className="border border-gray-300 text-center font-bold bg-gray-50" style={{ fontSize: rowFontSizes[rowId] ? `${rowFontSizes[rowId]}px` : undefined }}>
+          {displayAvg}
+        </TableCell>
+      </>
     );
   };
 
@@ -467,7 +507,35 @@ export function RNReport() {
               </Button>
             </div>
             <CardTitle className="text-2xl text-center flex-1 whitespace-nowrap">2026 RN Generation Details Report</CardTitle>
-            <div className="flex items-center gap-2 flex-1 justify-end">
+            <div className="flex items-center gap-2 flex-1 justify-end flex-wrap">
+              <div className="flex items-center gap-2">
+                <Select value={selectedWeek.toString()} onValueChange={(v) => setSelectedWeek(parseInt(v))}>
+                  <SelectTrigger className="w-[120px] h-10 font-bold">
+                    <SelectValue placeholder="Select Week" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 52 }, (_, i) => i + 1).map((w) => (
+                      <SelectItem key={w} value={w.toString()}>
+                        Week {w}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={numWeeks.toString()} onValueChange={(v) => setNumWeeks(parseInt(v))}>
+                  <SelectTrigger className="w-[80px] h-10 font-bold">
+                    <SelectValue placeholder="Weeks" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <SelectItem key={n} value={n.toString()}>
+                        {n} {n === 1 ? 'Week' : 'Weeks'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" size="sm" className="h-10 font-bold">
@@ -511,6 +579,12 @@ export function RNReport() {
                         {format(d, 'M-d')}
                       </TableHead>
                     ))}
+                    <TableHead className="border border-gray-300 bg-blue-50 font-bold text-center min-w-[100px]">
+                      TOTAL SUM
+                    </TableHead>
+                    <TableHead className="border border-gray-300 bg-blue-50 font-bold text-center min-w-[100px]">
+                      AVERAGE
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -521,18 +595,21 @@ export function RNReport() {
                           <TableRow>
                             <RowHeader title={`Shift ${shift} Usage (kg)`} subtitle={`班次 ${shift} 使用重量`} rowId={`rn_${shift}_usage`} />
                             {days.map(d => renderCell(d, getShiftData(d, shift).usage, `rn_${shift}_usage`, shift))}
+                            {renderSummaryCells(days.map(d => getShiftData(d, shift).usage), `rn_${shift}_usage`)}
                           </TableRow>
                         )}
                         {!hiddenRows.includes(`rn_${shift}_scrap`) && (
                           <TableRow>
                             <RowHeader title={`Shift ${shift} RN (kg)`} subtitle={`班次 ${shift} RN產生重量`} rowId={`rn_${shift}_scrap`} />
                             {days.map(d => renderCell(d, getShiftData(d, shift).rn, `rn_${shift}_scrap`, shift))}
+                            {renderSummaryCells(days.map(d => getShiftData(d, shift).rn), `rn_${shift}_scrap`)}
                           </TableRow>
                         )}
                         {!hiddenRows.includes(`rn_${shift}_rate`) && (
                           <TableRow className="bg-[#e2f0d9]">
                             <RowHeader title={`Shift ${shift} Rate (%)`} subtitle={`班次 ${shift} 回收率`} rowId={`rn_${shift}_rate`} />
                             {days.map(d => renderCell(d, getShiftData(d, shift).rate, `rn_${shift}_rate`, shift))}
+                            {renderSummaryCells(days.map(d => getShiftData(d, shift).rate), `rn_${shift}_rate`)}
                           </TableRow>
                         )}
                       </React.Fragment>
@@ -542,6 +619,7 @@ export function RNReport() {
                       <TableRow key={mat}>
                         <RowHeader title={mat} subtitle="膠料類型" rowId={`rn_mat_${mat}`} />
                         {days.map(d => renderCell(d, getMaterialData(d, mat), `rn_mat_${mat}`, undefined, mat))}
+                        {renderSummaryCells(days.map(d => getMaterialData(d, mat)), `rn_mat_${mat}`)}
                       </TableRow>
                     ))
                   )}
@@ -549,18 +627,21 @@ export function RNReport() {
                     <TableRow className="bg-gray-100 font-bold">
                       <RowHeader title="TOTAL Usage (kg)" subtitle="總使用重量" rowId="rn_total_usage" />
                       {days.map(d => renderCell(d, getTotalData(d).usage, "rn_total_usage"))}
+                      {renderSummaryCells(days.map(d => getTotalData(d).usage), "rn_total_usage")}
                     </TableRow>
                   )}
                   {!hiddenRows.includes("rn_total_scrap") && (
                     <TableRow className="bg-gray-100 font-bold">
                       <RowHeader title="TOTAL RN (kg)" subtitle="總RN產生重量" rowId="rn_total_scrap" />
                       {days.map(d => renderCell(d, getTotalData(d).rn, "rn_total_scrap"))}
+                      {renderSummaryCells(days.map(d => getTotalData(d).rn), "rn_total_scrap")}
                     </TableRow>
                   )}
                   {!hiddenRows.includes("rn_total_rate") && (
                     <TableRow className="bg-[#ddebf7] font-bold">
                       <RowHeader title="TOTAL Rate (%)" subtitle="總回收率" rowId="rn_total_rate" />
                       {days.map(d => renderCell(d, getTotalData(d).rate, "rn_total_rate"))}
+                      {renderSummaryCells(days.map(d => getTotalData(d).rate), "rn_total_rate")}
                     </TableRow>
                   )}
                 </TableBody>
@@ -581,19 +662,19 @@ export function RNReport() {
           <CardContent>
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="date" />
                   <YAxis />
-                  <Tooltip formatter={(v: number) => [`${(v/1000).toFixed(0)} t`, '']} />
+                  <Tooltip formatter={(v: number) => [`${(v/1000).toFixed(2)} t`, '']} />
                   <Legend />
-                  <Line type="monotone" dataKey="usage" name="Usage (t)" stroke="#2563eb" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }}>
-                    <LabelList dataKey="usage" position="top" formatter={(v: number) => (v/1000).toFixed(0)} style={{ fontSize: '10px', fill: '#2563eb', fontWeight: 'bold' }} />
-                  </Line>
-                  <Line type="monotone" dataKey="rn" name="RN (t)" stroke="#dc2626" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }}>
-                    <LabelList dataKey="rn" position="top" formatter={(v: number) => (v/1000).toFixed(0)} style={{ fontSize: '10px', fill: '#dc2626', fontWeight: 'bold' }} />
-                  </Line>
-                </LineChart>
+                  <Bar dataKey="usage" name="Usage (t)" fill="#2563eb" radius={[4, 4, 0, 0]}>
+                    <LabelList dataKey="usage" position="top" formatter={(v: number) => (v/1000).toFixed(2)} style={{ fontSize: '10px', fill: '#2563eb', fontWeight: 'bold' }} />
+                  </Bar>
+                  <Bar dataKey="rn" name="RN (t)" fill="#dc2626" radius={[4, 4, 0, 0]}>
+                    <LabelList dataKey="rn" position="top" formatter={(v: number) => (v/1000).toFixed(2)} style={{ fontSize: '10px', fill: '#dc2626', fontWeight: 'bold' }} />
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
