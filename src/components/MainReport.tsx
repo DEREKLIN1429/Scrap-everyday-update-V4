@@ -209,10 +209,28 @@ export function MainReport() {
   const copyAsPicture = async () => {
     if (!tableRef.current) return;
     try {
+      // To capture the full table even if scrolled, we temporarily remove constraints
+      const originalStyle = tableRef.current.getAttribute('style') || '';
+      const originalParentStyle = tableRef.current.parentElement?.getAttribute('style') || '';
+      
+      // Force full width and height for capture
+      tableRef.current.style.width = 'max-content';
+      tableRef.current.style.height = 'auto';
+      tableRef.current.style.overflow = 'visible';
+      if (tableRef.current.parentElement) {
+        tableRef.current.parentElement.style.overflow = 'visible';
+      }
+
       const blob = await toBlob(tableRef.current, { 
         backgroundColor: '#ffffff',
         pixelRatio: 2
       });
+
+      // Restore styles
+      tableRef.current.setAttribute('style', originalStyle);
+      if (tableRef.current.parentElement) {
+        tableRef.current.parentElement.setAttribute('style', originalParentStyle);
+      }
       
       if (!blob) return;
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { format, eachDayOfInterval } from 'date-fns';
+import { format, eachDayOfInterval, isAfter, startOfDay } from 'date-fns';
 import { Calendar as CalendarIcon, RefreshCw, Copy, Image as ImageIcon, Check, Type, Plus, Minus, X, Eye, EyeOff, TrendingUp } from 'lucide-react';
 import { toBlob } from 'html-to-image';
 import { Calendar } from '@/src/components/ui/calendar';
@@ -204,15 +204,18 @@ export function RNReport() {
 
   const chartData = useMemo(() => {
     if (!days.length) return [];
+    const today = startOfDay(new Date());
     return days.map(d => {
       const dData = getTotalData(d);
       const rateVal = parseFloat(dData.rate);
+      const isFuture = isAfter(startOfDay(d), today);
+      
       return {
         date: format(d, 'MM/dd'),
-        usage: dData.usage || 0,
-        rn: dData.rn || 0,
-        rate: isNaN(rateVal) ? 0 : rateVal,
-        target: targets?.rn_rate?.value || 95
+        usage: isFuture ? null : (dData.usage || 0),
+        rn: isFuture ? null : (dData.rn || 0),
+        rate: isFuture ? null : (isNaN(rateVal) ? 0 : rateVal),
+        target: isFuture ? null : (targets?.rn_rate?.value || 95)
       };
     });
   }, [days, getTotalData, targets]);
@@ -247,18 +250,28 @@ export function RNReport() {
   const copyAsPicture = useCallback(async () => {
     if (!tableRef.current) return;
     try {
-      // Create a temporary container to hold the table for capture
-      const container = document.createElement('div');
-      container.style.padding = '20px';
-      container.style.background = '#ffffff';
-      container.style.width = '1200px'; // Fixed width for consistent capture
+      // To capture the full table even if scrolled, we temporarily remove constraints
+      const originalStyle = tableRef.current.getAttribute('style') || '';
+      const originalParentStyle = tableRef.current.parentElement?.getAttribute('style') || '';
       
-      const tableClone = tableRef.current.cloneNode(true) as HTMLDivElement;
-      container.appendChild(tableClone);
-      
-      document.body.appendChild(container);
-      const blob = await toBlob(container, { backgroundColor: '#ffffff', pixelRatio: 2 });
-      document.body.removeChild(container);
+      // Force full width and height for capture
+      tableRef.current.style.width = 'max-content';
+      tableRef.current.style.height = 'auto';
+      tableRef.current.style.overflow = 'visible';
+      if (tableRef.current.parentElement) {
+        tableRef.current.parentElement.style.overflow = 'visible';
+      }
+
+      const blob = await toBlob(tableRef.current, { 
+        backgroundColor: '#ffffff',
+        pixelRatio: 2
+      });
+
+      // Restore styles
+      tableRef.current.setAttribute('style', originalStyle);
+      if (tableRef.current.parentElement) {
+        tableRef.current.parentElement.setAttribute('style', originalParentStyle);
+      }
 
       if (!blob) return;
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
@@ -274,17 +287,21 @@ export function RNReport() {
   const copyChartsAsPicture = useCallback(async () => {
     if (!chartRef.current) return;
     try {
-      const container = document.createElement('div');
-      container.style.padding = '20px';
-      container.style.background = '#ffffff';
-      container.style.width = '1200px'; // Fixed width to ensure chart displays well
+      // To capture full charts, we temporarily remove constraints
+      const originalStyle = chartRef.current.getAttribute('style') || '';
       
-      const chartClone = chartRef.current.cloneNode(true) as HTMLDivElement;
-      container.appendChild(chartClone);
-      
-      document.body.appendChild(container);
-      const blob = await toBlob(container, { backgroundColor: '#ffffff', pixelRatio: 2 });
-      document.body.removeChild(container);
+      // Force height to auto and minimum width to ensure charts have space
+      chartRef.current.style.width = '1200px'; 
+      chartRef.current.style.height = 'auto';
+      chartRef.current.style.overflow = 'visible';
+
+      const blob = await toBlob(chartRef.current, { 
+        backgroundColor: '#ffffff',
+        pixelRatio: 2
+      });
+
+      // Restore styles
+      chartRef.current.setAttribute('style', originalStyle);
 
       if (!blob) return;
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
@@ -734,6 +751,13 @@ export function RNReport() {
                   </Bar>
                   <Bar dataKey="rn" name="RN (kg)" fill="#dc2626" radius={[4, 4, 0, 0]}>
                     <LabelList dataKey="rn" position="top" formatter={(v: number) => v.toFixed(0)} style={{ fontSize: '14px', fill: '#dc2626', fontWeight: 'bold' }} />
+                    <LabelList 
+                      dataKey="rate" 
+                      position="top" 
+                      offset={25} 
+                      formatter={(v: number) => v > 0 ? `${v.toFixed(1)}%` : ''} 
+                      style={{ fontSize: '14px', fill: '#16a34a', fontWeight: 'bold' }} 
+                    />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -754,7 +778,12 @@ export function RNReport() {
                 <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 25 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="date" angle={-45} textAnchor="end" height={60} tick={{ fontSize: 14 }} />
-                  <YAxis unit="%" domain={[0, 100]} tick={{ fontSize: 14 }} />
+                  <YAxis 
+                    unit="%" 
+                    domain={['dataMin - 1', 'dataMax + 1']} 
+                    tick={{ fontSize: 14 }} 
+                    tickFormatter={(v) => Math.round(v).toString()}
+                  />
                   <Tooltip formatter={(value: number) => [`${value.toFixed(1)}%`, 'Rate']} />
                   <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: '20px', fontSize: '14px' }} />
                   <Line type="monotone" dataKey="rate" name="RN Rate" stroke="#16a34a" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }}>
