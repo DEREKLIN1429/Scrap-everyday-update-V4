@@ -79,7 +79,7 @@ export function RNReport() {
   const adjustFontSize = useCallback((rowId: string, delta: number) => {
     setRowFontSizes(prev => ({
       ...prev,
-      [rowId]: Math.max(8, (prev[rowId] || 14) + delta)
+      [rowId]: Math.max(8, (prev[rowId] || 17) + delta)
     }));
   }, []);
 
@@ -98,15 +98,23 @@ export function RNReport() {
     const summary = data?.summaries?.find((s: any) => s.date === formattedDate && s.shift === shift);
     const scraps = data?.scraps?.filter((s: any) => s.date === formattedDate && s.shift === shift) || [];
     
-    const extrusionUsage = parseFloat(summary?.extrusionRubberUsage) || 0;
-    const tireBuildingUsage = parseFloat(summary?.tireBuildingUsage) || 0;
-    // Point 1: Usage includes both extrusion rubber and tire building
-    const usage = extrusionUsage + tireBuildingUsage;
+    if (!summary && scraps.length === 0) {
+      return { usage: null, rn: null, rate: null, extrusionUsage: 0, calenderingUsage: 0, tireBuildingUsage: 0, extrusionScrap: 0, calenderingScrap: 0, tireBuildingScrap: 0 };
+    }
 
-    // Point 4: Ensure Tire Building RN is correctly identified
+    const extrusionUsage = parseFloat(summary?.extrusionRubberUsage) || 0;
+    const calenderingUsage = parseFloat(summary?.plyUsage) || 0;
+    const tireBuildingUsage = parseFloat(summary?.tireBuildingUsage) || 0;
+    const usage = extrusionUsage;
+
     const extrusionScrap = scraps.filter((s: any) => 
       (s.material === 'Extrusion Rubber' || s.material === 'RN') && 
       (s.section === 'Extrusion' || !s.section || s.section === 'Mixing')
+    ).reduce((sum: number, s: any) => sum + (parseFloat(s.weight) || 0), 0);
+
+    const calenderingScrap = scraps.filter((s: any) => 
+      (s.material === 'Extrusion Rubber' || s.material === 'RN') && 
+      (s.section === 'Calendering' || s.section === 'Cutting')
     ).reduce((sum: number, s: any) => sum + (parseFloat(s.weight) || 0), 0);
 
     const tireBuildingScrap = scraps.filter((s: any) => 
@@ -114,12 +122,13 @@ export function RNReport() {
       s.section === 'Tire building'
     ).reduce((sum: number, s: any) => sum + (parseFloat(s.weight) || 0), 0);
 
-    const rn = extrusionScrap + tireBuildingScrap;
+    const rn = extrusionScrap + tireBuildingScrap + calenderingScrap;
     
-    // Point 2: RN ratio = (Extrusion gen + Tire building gen) / Extrusion usage
     const rate = extrusionUsage > 0 ? ((rn / extrusionUsage) * 100).toFixed(3) + '%' : '0%';
     
-    return { usage, rn, rate, extrusionUsage, tireBuildingUsage, extrusionScrap, tireBuildingScrap };
+    const calenderingRate = calenderingUsage > 0 ? ((calenderingScrap / calenderingUsage) * 100).toFixed(3) + '%' : '0%';
+    
+    return { usage, rn, rate, extrusionUsage, calenderingUsage, tireBuildingUsage, extrusionScrap, calenderingScrap, tireBuildingScrap, calenderingRate };
   }, [data]);
 
   const getTotalData = useCallback((d: Date) => {
@@ -127,13 +136,23 @@ export function RNReport() {
     const daySummaries = data?.summaries?.filter((s: any) => s.date === formattedDate) || [];
     const dayScraps = data?.scraps?.filter((s: any) => s.date === formattedDate) || [];
     
+    if (daySummaries.length === 0 && dayScraps.length === 0) {
+      return { usage: null, rn: null, rate: null, extrusionUsage: 0, calenderingUsage: 0, tireBuildingUsage: 0, extrusionScrap: 0, calenderingScrap: 0, tireBuildingScrap: 0 };
+    }
+
     const extrusionUsage = daySummaries.reduce((sum: number, s: any) => sum + (parseFloat(s.extrusionRubberUsage) || 0), 0);
+    const calenderingUsage = daySummaries.reduce((sum: number, s: any) => sum + (parseFloat(s.plyUsage) || 0), 0);
     const tireBuildingUsage = daySummaries.reduce((sum: number, s: any) => sum + (parseFloat(s.tireBuildingUsage) || 0), 0);
-    const usage = extrusionUsage + tireBuildingUsage;
+    const usage = extrusionUsage;
 
     const extrusionScrap = dayScraps.filter((s: any) => 
       (s.material === 'Extrusion Rubber' || s.material === 'RN') && 
       (s.section === 'Extrusion' || !s.section || s.section === 'Mixing')
+    ).reduce((sum: number, s: any) => sum + (parseFloat(s.weight) || 0), 0);
+
+    const calenderingScrap = dayScraps.filter((s: any) => 
+      (s.material === 'Extrusion Rubber' || s.material === 'RN') && 
+      (s.section === 'Calendering' || s.section === 'Cutting')
     ).reduce((sum: number, s: any) => sum + (parseFloat(s.weight) || 0), 0);
 
     const tireBuildingScrap = dayScraps.filter((s: any) => 
@@ -141,21 +160,27 @@ export function RNReport() {
       s.section === 'Tire building'
     ).reduce((sum: number, s: any) => sum + (parseFloat(s.weight) || 0), 0);
 
-    const rn = extrusionScrap + tireBuildingScrap;
+    const rn = extrusionScrap + tireBuildingScrap + calenderingScrap;
     
     const rate = extrusionUsage > 0 ? ((rn / extrusionUsage) * 100).toFixed(3) + '%' : '0%';
     
-    return { usage, rn, rate, extrusionUsage, tireBuildingUsage, extrusionScrap, tireBuildingScrap };
+    return { usage, rn, rate, extrusionUsage, calenderingUsage, tireBuildingUsage, extrusionScrap, calenderingScrap, tireBuildingScrap };
   }, [data]);
 
   const getMaterialData = useCallback((d: Date, materialName: string) => {
     const formattedDate = format(d, 'yyyy-MM-dd');
     const dayScraps = data?.scraps?.filter((s: any) => s.date === formattedDate && s.materialName === materialName) || [];
     
-    // For material-wise, we only show RN generation weight
+    if (dayScraps.length === 0) return null;
+
     const extrusionScrap = dayScraps.filter((s: any) => 
       (s.material === 'Extrusion Rubber' || s.material === 'RN') && 
       (s.section === 'Extrusion' || !s.section || s.section === 'Mixing')
+    ).reduce((sum: number, s: any) => sum + (parseFloat(s.weight) || 0), 0);
+
+    const calenderingScrap = dayScraps.filter((s: any) => 
+      (s.material === 'Extrusion Rubber' || s.material === 'RN') && 
+      (s.section === 'Calendering' || s.section === 'Cutting')
     ).reduce((sum: number, s: any) => sum + (parseFloat(s.weight) || 0), 0);
 
     const tireBuildingScrap = dayScraps.filter((s: any) => 
@@ -163,14 +188,14 @@ export function RNReport() {
       s.section === 'Tire building'
     ).reduce((sum: number, s: any) => sum + (parseFloat(s.weight) || 0), 0);
 
-    return extrusionScrap + tireBuildingScrap;
+    return extrusionScrap + calenderingScrap + tireBuildingScrap;
   }, [data]);
 
   const uniqueMaterials = useMemo(() => {
     if (!data?.scraps) return [];
     const materials = new Set<string>();
     data.scraps.forEach((s: any) => {
-      if (s.materialName && (s.material === 'Extrusion Rubber' || s.material === 'RN' || (s.material === 'Rubber' && s.section === 'Tire building'))) {
+      if (s.materialName && (s.material === 'Extrusion Rubber' || s.material === 'RN' || (s.material === 'Rubber' && (s.section === 'Tire building' || s.section === 'Calendering' || s.section === 'Cutting')))) {
         materials.add(s.materialName);
       }
     });
@@ -408,10 +433,10 @@ export function RNReport() {
   const RowHeader = ({ title, subtitle, rowId }: { title: string, subtitle: string, rowId: string }) => (
     <TableCell 
       className="border border-gray-300 font-medium leading-tight py-2 min-w-[150px] max-w-[250px] whitespace-normal relative group"
-      style={{ fontSize: rowFontSizes[rowId] ? `${rowFontSizes[rowId]}px` : undefined }}
+      style={{ fontSize: `${rowFontSizes[rowId] || 17}px` }}
     >
       <div className="text-sm pr-6" style={{ fontSize: 'inherit' }}>{title}</div>
-      <div className="text-xs text-gray-500 mt-0.5 pr-6" style={{ fontSize: rowFontSizes[rowId] ? `${rowFontSizes[rowId] * 0.8}px` : undefined }}>{subtitle}</div>
+      <div className="text-xs text-gray-500 mt-0.5 pr-6" style={{ fontSize: `${(rowFontSizes[rowId] || 17) * 0.8}px` }}>{subtitle}</div>
       
       <button 
         onClick={() => toggleRowVisibility(rowId)}
@@ -424,7 +449,7 @@ export function RNReport() {
       {isEditingFont && (
         <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col gap-1 bg-white/90 backdrop-blur-sm p-1 rounded border shadow-sm z-10">
           <button onClick={() => adjustFontSize(rowId, 1)} className="p-0.5 hover:bg-gray-100 rounded text-primary"><Plus className="h-3 w-3" /></button>
-          <span className="text-[10px] text-center font-bold">{rowFontSizes[rowId] || 14}</span>
+          <span className="text-[10px] text-center font-bold">{rowFontSizes[rowId] || 17}</span>
           <button onClick={() => adjustFontSize(rowId, -1)} className="p-0.5 hover:bg-gray-100 rounded text-primary"><Minus className="h-3 w-3" /></button>
         </div>
       )}
@@ -467,7 +492,7 @@ export function RNReport() {
           hasData && "cursor-pointer hover:bg-black/5",
           isOverTarget && "text-red-600 font-bold"
         )}
-        style={{ fontSize: rowFontSizes[rowId] ? `${rowFontSizes[rowId]}px` : undefined }}
+        style={{ fontSize: `${rowFontSizes[rowId] || 17}px` }}
         onDoubleClick={() => {
           if (hasData) {
             setDetailModal({ date: d, shift, materialName });
@@ -482,7 +507,7 @@ export function RNReport() {
   const renderSummaryCells = (values: any[], rowId: string) => {
     const numericValues = values
       .map(v => (typeof v === 'number' ? v : parseFloat(v)))
-      .filter(v => !isNaN(v) && v !== 0);
+      .filter(v => v !== null && v !== undefined && !isNaN(v));
     
     const sum = numericValues.reduce((acc, v) => acc + v, 0);
     const avg = numericValues.length > 0 ? sum / numericValues.length : 0;
@@ -494,7 +519,7 @@ export function RNReport() {
 
     if (isRate) {
       return (
-        <TableCell colSpan={2} className={cn("border border-gray-300 text-center font-bold bg-gray-50", isOverTarget && "text-red-600")} style={{ fontSize: rowFontSizes[rowId] ? `${rowFontSizes[rowId]}px` : undefined }}>
+        <TableCell colSpan={2} className={cn("border border-gray-300 text-center font-bold bg-gray-50", isOverTarget && "text-red-600")} style={{ fontSize: `${rowFontSizes[rowId] || 17}px` }}>
           {displayAvg}
         </TableCell>
       );
@@ -502,10 +527,10 @@ export function RNReport() {
 
     return (
       <>
-        <TableCell className="border border-gray-300 text-center font-bold bg-gray-50" style={{ fontSize: rowFontSizes[rowId] ? `${rowFontSizes[rowId]}px` : undefined }}>
+        <TableCell className="border border-gray-300 text-center font-bold bg-gray-50" style={{ fontSize: `${rowFontSizes[rowId] || 17}px` }}>
           {displaySum}
         </TableCell>
-        <TableCell className="border border-gray-300 text-center font-bold bg-gray-50" style={{ fontSize: rowFontSizes[rowId] ? `${rowFontSizes[rowId]}px` : undefined }}>
+        <TableCell className="border border-gray-300 text-center font-bold bg-gray-50" style={{ fontSize: `${rowFontSizes[rowId] || 17}px` }}>
           {displayAvg}
         </TableCell>
       </>
@@ -622,7 +647,7 @@ export function RNReport() {
                       <React.Fragment key={shift}>
                         {!hiddenRows.includes(`rn_${shift}_usage`) && (
                           <TableRow>
-                            <RowHeader title={`Shift ${shift} Usage (kg)`} subtitle={`班次 ${shift} 使用重量`} rowId={`rn_${shift}_usage`} />
+                            <RowHeader title={`Shift ${shift} Usage (kg)`} subtitle={`班次 ${shift} 擠出使用重量`} rowId={`rn_${shift}_usage`} />
                             {days.map(d => renderCell(d, getShiftData(d, shift).usage, `rn_${shift}_usage`, shift))}
                             {renderSummaryCells(days.map(d => getShiftData(d, shift).usage), `rn_${shift}_usage`)}
                           </TableRow>
@@ -654,7 +679,7 @@ export function RNReport() {
                   )}
                   {!hiddenRows.includes("rn_total_usage") && (
                     <TableRow className="bg-gray-100 font-bold">
-                      <RowHeader title="TOTAL Usage (kg)" subtitle="總使用重量" rowId="rn_total_usage" />
+                      <RowHeader title="TOTAL Usage (kg)" subtitle="總計擠出使用重量" rowId="rn_total_usage" />
                       {days.map(d => renderCell(d, getTotalData(d).usage, "rn_total_usage"))}
                       {renderSummaryCells(days.map(d => getTotalData(d).usage), "rn_total_usage")}
                     </TableRow>
@@ -702,13 +727,13 @@ export function RNReport() {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="date" angle={-45} textAnchor="end" height={60} tick={{ fontSize: 14 }} />
                   <YAxis tick={{ fontSize: 14 }} />
-                  <Tooltip formatter={(v: number) => [`${(v/1000).toFixed(2)} t`, '']} />
+                  <Tooltip formatter={(v: number) => [`${v.toFixed(0)} kg`, '']} />
                   <Legend verticalAlign="top" align="right" wrapperStyle={{ paddingBottom: '20px', fontSize: '14px' }} />
-                  <Bar dataKey="usage" name="Usage (t)" fill="#2563eb" radius={[4, 4, 0, 0]}>
-                    <LabelList dataKey="usage" position="top" formatter={(v: number) => (v/1000).toFixed(2)} style={{ fontSize: '14px', fill: '#2563eb', fontWeight: 'bold' }} />
+                  <Bar dataKey="usage" name="Usage (kg)" fill="#2563eb" radius={[4, 4, 0, 0]}>
+                    <LabelList dataKey="usage" position="top" formatter={(v: number) => v.toFixed(0)} style={{ fontSize: '14px', fill: '#2563eb', fontWeight: 'bold' }} />
                   </Bar>
-                  <Bar dataKey="rn" name="RN (t)" fill="#dc2626" radius={[4, 4, 0, 0]}>
-                    <LabelList dataKey="rn" position="top" formatter={(v: number) => (v/1000).toFixed(2)} style={{ fontSize: '14px', fill: '#dc2626', fontWeight: 'bold' }} />
+                  <Bar dataKey="rn" name="RN (kg)" fill="#dc2626" radius={[4, 4, 0, 0]}>
+                    <LabelList dataKey="rn" position="top" formatter={(v: number) => v.toFixed(0)} style={{ fontSize: '14px', fill: '#dc2626', fontWeight: 'bold' }} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -776,6 +801,7 @@ export function RNReport() {
                       <TableHead className="font-bold border">Shift</TableHead>
                       <TableHead className="font-bold border text-center">Extrusion Usage (kg)</TableHead>
                       <TableHead className="font-bold border text-center">Extrusion RN (kg)</TableHead>
+                      <TableHead className="font-bold border text-center">Calendering RN (kg)</TableHead>
                       <TableHead className="font-bold border text-center">Tire Building RN (kg)</TableHead>
                       <TableHead className="font-bold border text-center">RN Rate (%)</TableHead>
                     </TableRow>
@@ -788,6 +814,7 @@ export function RNReport() {
                           <TableCell className="font-bold border">{shift}</TableCell>
                           <TableCell className="text-center border">{s.extrusionUsage.toFixed(0)}</TableCell>
                           <TableCell className="text-center border">{s.extrusionScrap.toFixed(1)}</TableCell>
+                          <TableCell className="text-center border">{s.calenderingScrap.toFixed(1)}</TableCell>
                           <TableCell className="text-center border">{s.tireBuildingScrap.toFixed(1)}</TableCell>
                           <TableCell className="text-center border font-medium">{s.rate}</TableCell>
                         </TableRow>
@@ -802,6 +829,7 @@ export function RNReport() {
                             <>
                               <TableCell className="text-center border">{s.extrusionUsage.toFixed(0)}</TableCell>
                               <TableCell className="text-center border">{s.extrusionScrap.toFixed(1)}</TableCell>
+                              <TableCell className="text-center border">{s.calenderingScrap.toFixed(1)}</TableCell>
                               <TableCell className="text-center border">{s.tireBuildingScrap.toFixed(1)}</TableCell>
                               <TableCell className="text-center border text-primary">{s.rate}</TableCell>
                             </>

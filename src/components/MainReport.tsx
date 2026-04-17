@@ -54,7 +54,7 @@ export function MainReport() {
   const adjustFontSize = (rowId: string, delta: number) => {
     setRowFontSizes(prev => ({
       ...prev,
-      [rowId]: Math.max(8, (prev[rowId] || 14) + delta)
+      [rowId]: Math.max(8, (prev[rowId] || 17) + delta)
     }));
   };
 
@@ -142,7 +142,7 @@ export function MainReport() {
       filtered = dayScraps.filter((s: any) => 
         s.material === 'Extrusion Rubber' || 
         s.material === 'RN' || 
-        (s.material === 'Rubber' && s.section === 'Tire building')
+        (s.material === 'Rubber' && (s.section === 'Tire building' || s.section === 'Calendering' || s.section === 'Cutting'))
       );
     }
     
@@ -188,13 +188,13 @@ export function MainReport() {
       // RN
       days.map(d => {
         const s = getSummaryForDate(d);
-        // Point 1: Usage includes both extrusion rubber and tire building
-        return (Number(s?.extrusionRubberUsage || 0) + Number(s?.tireBuildingUsage || 0)).toString();
+        // Point 1: Usage includes only extrusion
+        return (Number(s?.extrusionRubberUsage || 0)).toString();
       }),
       days.map(d => getCustomScrapForDate(d, 'RN') || '0'),
       days.map(d => {
         const s = getSummaryForDate(d);
-        // Point 2: RN ratio = (Extrusion gen + Tire building gen) / Extrusion usage
+        // Point 2: RN ratio = Total Scraps / Extrusion Usage
         return calculateRate(getCustomScrapForDate(d, 'RN'), Number(s?.extrusionRubberUsage || 0));
       }),
     ];
@@ -259,7 +259,7 @@ export function MainReport() {
       return dayScraps.filter((s: any) => 
         s.material === 'Extrusion Rubber' || 
         s.material === 'RN' || 
-        (s.material === 'Rubber' && s.section === 'Tire building')
+        (s.material === 'Rubber' && (s.section === 'Tire building' || s.section === 'Calendering' || s.section === 'Cutting'))
       );
     }
     return [];
@@ -398,7 +398,7 @@ export function MainReport() {
           "border border-gray-300 text-center cursor-pointer hover:bg-black/5 transition-colors",
           isOverTarget && "text-red-600 font-bold"
         )}
-        style={{ fontSize: rowFontSizes[rowId] ? `${rowFontSizes[rowId]}px` : undefined }}
+        style={{ fontSize: `${rowFontSizes[rowId] || 17}px` }}
         onDoubleClick={() => {
           if (isUsageRow) {
             setUsageDetailModal({ date: d, type });
@@ -416,15 +416,15 @@ export function MainReport() {
   const RowHeader = ({ title, subtitle, rowId }: { title: string, subtitle: string, rowId: string }) => (
     <TableCell 
       className="border border-gray-300 font-medium leading-tight py-2 min-w-[150px] max-w-[250px] whitespace-normal relative group"
-      style={{ fontSize: rowFontSizes[rowId] ? `${rowFontSizes[rowId]}px` : undefined }}
+      style={{ fontSize: `${rowFontSizes[rowId] || 17}px` }}
     >
       <div className="text-sm" style={{ fontSize: 'inherit' }}>{title}</div>
-      <div className="text-xs text-gray-500 mt-0.5" style={{ fontSize: rowFontSizes[rowId] ? `${rowFontSizes[rowId] * 0.8}px` : undefined }}>{subtitle}</div>
+      <div className="text-xs text-gray-500 mt-0.5" style={{ fontSize: `${(rowFontSizes[rowId] || 17) * 0.8}px` }}>{subtitle}</div>
       
       {isEditingFont && (
         <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col gap-1 bg-white/90 backdrop-blur-sm p-1 rounded border shadow-sm z-10">
           <button onClick={() => adjustFontSize(rowId, 1)} className="p-0.5 hover:bg-gray-100 rounded text-primary"><Plus className="h-3 w-3" /></button>
-          <span className="text-[10px] text-center font-bold">{rowFontSizes[rowId] || 14}</span>
+          <span className="text-[10px] text-center font-bold">{rowFontSizes[rowId] || 17}</span>
           <button onClick={() => adjustFontSize(rowId, -1)} className="p-0.5 hover:bg-gray-100 rounded text-primary"><Minus className="h-3 w-3" /></button>
         </div>
       )}
@@ -678,7 +678,7 @@ export function MainReport() {
 
                 {/* RN (Rubber Recycling) */}
                 <TableRow>
-                  <RowHeader title="Extrusion rubber usage (kg)" subtitle="押出膠料使用重量(kg)" rowId="rn_usage" />
+                  <RowHeader title="Extrusion rubber usage (kg)" subtitle="擠出膠料使用重量(kg)" rowId="rn_usage" />
                   {days.map((d) => {
                     const summary = getSummaryForDate(d);
                     return renderCell(d, 'RN', summary ? (summary.extrusionRubberUsage ?? 0) : null, 'rn_usage');
@@ -692,7 +692,8 @@ export function MainReport() {
                   <RowHeader title="Rubber recovery rate (%)" subtitle="膠料回收率(%)" rowId="rn_rate" />
                   {days.map((d) => {
                     const summary = getSummaryForDate(d);
-                    return renderCell(d, 'RN', calculateRate(getCustomScrapForDate(d, 'RN'), summary ? (summary.extrusionRubberUsage ?? 0) : null), 'rn_rate');
+                    const usageTotal = summary ? (summary.extrusionRubberUsage ?? 0) : 0;
+                    return renderCell(d, 'RN', calculateRate(getCustomScrapForDate(d, 'RN'), usageTotal || null), 'rn_rate');
                   })}
                 </TableRow>
               </TableBody>
