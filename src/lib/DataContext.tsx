@@ -131,14 +131,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const loadData = useCallback(async (force = false) => {
-    if (!getWebAppUrl()) return;
+    if (!getWebAppUrl() || !globalDateRange?.from) return;
     
-    // Default range is start of current month to end of current week
-    // But for global data, we'll just fetch a wide enough range or let components specify
-    // For now, let's fetch from start of month to today + 7 days to cover most views
-    const now = new Date();
-    const start = format(startOfMonth(now), 'yyyy-MM-dd');
-    const end = format(new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
+    // Fetch from start of month of the selected range to the end of the selected range
+    const start = format(startOfMonth(globalDateRange.from), 'yyyy-MM-dd');
+    const end = format(globalDateRange.to || globalDateRange.from, 'yyyy-MM-dd');
 
     if (!force && data && lastFetchRange?.start === start && lastFetchRange?.end === end) {
       return;
@@ -155,7 +152,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [data, lastFetchRange]);
+  }, [data, lastFetchRange, globalDateRange]);
 
   const updateScrapReasonInSheet = useCallback(async (timestamp: string, newReason: string) => {
     if (!getWebAppUrl()) return;
@@ -174,8 +171,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     loadTargets();
-    loadData();
-  }, []);
+    if (globalDateRange?.from) {
+      loadData();
+    }
+  }, [globalDateRange?.from]); // Load when first range is set or changed
 
   return (
     <DataContext.Provider value={{ 
