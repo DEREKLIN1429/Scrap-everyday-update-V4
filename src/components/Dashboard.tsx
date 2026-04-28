@@ -501,86 +501,90 @@ export function Dashboard() {
               No scrap records found matching the current filters.
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Shift</TableHead>
-                  <TableHead>Section</TableHead>
-                  <TableHead>Material Type</TableHead>
-                  <TableHead>Material Name</TableHead>
-                  <TableHead>Weight (kg)</TableHead>
-                  <TableHead>Reason</TableHead>
-                  <TableHead>Picture</TableHead>
-                  <TableHead>Recorded At</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredScraps.map((scrap: any, i: number) => (
-                  <TableRow key={i}>
-                    <TableCell className="whitespace-nowrap">{scrap.date}</TableCell>
-                    <TableCell>{scrap.shift}</TableCell>
-                    <TableCell>{scrap.section}</TableCell>
-                    <TableCell className="font-medium">{scrap.material}</TableCell>
-                    <TableCell>{scrap.materialName || '-'}</TableCell>
-                    <TableCell>{typeof scrap.weight === 'number' ? (scrap.weight === 0 ? '0' : scrap.weight.toFixed(1)) : (scrap.weight || '0')}</TableCell>
-                    <TableCell>
-                      {editingScrap === scrap.timestamp ? (
-                        <div className="flex items-center gap-2">
-                          <input 
-                            type="text" 
-                            className="border rounded px-2 py-1 text-sm flex-1"
-                            value={editReason}
-                            onChange={(e) => setEditReason(e.target.value)}
-                            autoFocus
-                          />
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-green-600"
-                            onClick={() => handleSaveReason(scrap.timestamp)}
-                            disabled={isUpdating}
-                          >
-                            {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-red-600"
-                            onClick={() => setEditingScrap(null)}
-                            disabled={isUpdating}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-between group">
-                          <span>{scrap.reason}</span>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() => startEditing(scrap)}
-                          >
-                            <Edit2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {scrap.imageUrl ? (
-                        <a href={scrap.imageUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                          View Image
-                        </a>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">No image</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground whitespace-nowrap">{formatToIST(scrap.timestamp || scrap.time || '-')}</TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Shift</TableHead>
+                    <TableHead>Section</TableHead>
+                    <TableHead>Material Type</TableHead>
+                    <TableHead>Material Name</TableHead>
+                    <TableHead>Weight (kg)</TableHead>
+                    <TableHead>Main Reason</TableHead>
+                    <TableHead>Reason</TableHead>
+                    <TableHead>Picture</TableHead>
+                    <TableHead>Recorded At</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredScraps.map((scrap: any, i: number) => (
+                    <TableRow key={i}>
+                      <TableCell className="whitespace-nowrap">{scrap.date}</TableCell>
+                      <TableCell>{scrap.shift}</TableCell>
+                      <TableCell>{scrap.section}</TableCell>
+                      <TableCell className="font-medium">{scrap.material}</TableCell>
+                      <TableCell>{scrap.materialName || '-'}</TableCell>
+                      <TableCell>{typeof scrap.weight === 'number' ? (scrap.weight === 0 ? '0' : scrap.weight.toFixed(1)) : (scrap.weight || '0')}</TableCell>
+                      <TableCell>{scrap.mainReason || '-'}</TableCell>
+                      <TableCell>
+                        {editingScrap === scrap.timestamp ? (
+                          <div className="flex items-center gap-2">
+                            <input 
+                              type="text" 
+                              className="border rounded px-2 py-1 text-sm flex-1"
+                              value={editReason}
+                              onChange={(e) => setEditReason(e.target.value)}
+                              autoFocus
+                            />
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-green-600"
+                              onClick={() => handleSaveReason(scrap.timestamp)}
+                              disabled={isUpdating}
+                            >
+                              {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-red-600"
+                              onClick={() => setEditingScrap(null)}
+                              disabled={isUpdating}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between group">
+                            <span>{scrap.reason}</span>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => startEditing(scrap)}
+                            >
+                              <Edit2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {scrap.imageUrl ? (
+                          <a href={scrap.imageUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                            View Image
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">No image</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground whitespace-nowrap">{formatToIST(scrap.timestamp || scrap.time || '-')}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

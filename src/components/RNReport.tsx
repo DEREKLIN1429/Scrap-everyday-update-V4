@@ -872,13 +872,13 @@ export function RNReport() {
                 <Table className="border">
                   <TableHeader>
                     <TableRow>
-                      {['Date', 'Shift', 'Section', 'Material Type', 'Material Name', 'Weight (kg)', 'Reason', 'Picture', 'Recorded At'].map((head, idx) => (
+                      {['Date', 'Shift', 'Section', 'Material Type', 'Material Name', 'Weight (kg)', 'Main Reason', 'Reason', 'Picture', 'Recorded At'].map((head, idx) => (
                         <TableHead 
                           key={idx} 
                           className={cn("cursor-pointer hover:bg-gray-100 transition-colors", highlightedCols.includes(idx) && "bg-yellow-100 text-yellow-900 font-bold")}
                           onClick={() => setHighlightedCols(prev => prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx])}
                         >
-                          {head === 'Reason' ? 'Reason for RN' : head}
+                          {head}
                         </TableHead>
                       ))}
                     </TableRow>
@@ -896,8 +896,9 @@ export function RNReport() {
                         <TableCell className={cn("font-medium", highlightedCols.includes(3) && "bg-yellow-50")}>{scrap.material}</TableCell>
                         <TableCell className={cn(highlightedCols.includes(4) && "bg-yellow-50")}>{scrap.materialName || '-'}</TableCell>
                         <TableCell className={cn(highlightedCols.includes(5) && "bg-yellow-50")}>{typeof scrap.weight === 'number' ? (scrap.weight === 0 ? '0' : scrap.weight.toFixed(1)) : (scrap.weight || '0')}</TableCell>
-                        <TableCell className={cn(highlightedCols.includes(6) && "bg-yellow-50")}>{scrap.reason}</TableCell>
-                        <TableCell className={cn(highlightedCols.includes(7) && "bg-yellow-50")}>
+                        <TableCell className={cn(highlightedCols.includes(6) && "bg-yellow-50")}>{scrap.mainReason || '-'}</TableCell>
+                        <TableCell className={cn(highlightedCols.includes(7) && "bg-yellow-50")}>{scrap.reason}</TableCell>
+                        <TableCell className={cn(highlightedCols.includes(8) && "bg-yellow-50")}>
                           {scrap.imageUrl ? (
                             <a href={scrap.imageUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                               View Image
@@ -906,7 +907,7 @@ export function RNReport() {
                             <span className="text-muted-foreground text-sm">No image</span>
                           )}
                         </TableCell>
-                        <TableCell className={cn("text-muted-foreground whitespace-nowrap", highlightedCols.includes(8) && "bg-yellow-50")}>{formatToIST(scrap.timestamp || scrap.time || '-')}</TableCell>
+                        <TableCell className={cn("text-muted-foreground whitespace-nowrap", highlightedCols.includes(9) && "bg-yellow-50")}>{formatToIST(scrap.timestamp || scrap.time || '-')}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

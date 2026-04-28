@@ -104,42 +104,6 @@ export function MainReport() {
     }
   }, [date]);
 
-  const monthlyMetrics = useMemo(() => {
-    if (!data || !days.length) return null;
-    const activeMonth = days[0];
-    
-    const calculateForCategory = (type: 'BIC' | 'PLY_CHAFER' | 'RUBBER_MIXING' | 'RN') => {
-      const monthSummaries = data.summaries?.filter((s: any) => isSameMonth(new Date(s.date), activeMonth)) || [];
-      const monthScraps = data.scraps?.filter((s: any) => isSameMonth(new Date(s.date), activeMonth)) || [];
-
-      const usage = monthSummaries.reduce((sum: number, curr: any) => {
-        if (type === 'BIC') return sum + (parseFloat(curr.bicUsage) || 0);
-        if (type === 'PLY_CHAFER') return sum + (parseFloat(curr.plyUsage) || 0);
-        if (type === 'RUBBER_MIXING') return sum + (parseFloat(curr.mixingRubberUsage ?? curr.rubberUsage) || 0);
-        if (type === 'RN') return sum + (parseFloat(curr.extrusionRubberUsage) || 0);
-        return sum;
-      }, 0);
-
-      let filteredScraps = [];
-      if (type === 'BIC') filteredScraps = monthScraps.filter((s: any) => s.material === 'BIC');
-      else if (type === 'PLY_CHAFER') filteredScraps = monthScraps.filter((s: any) => (s.material === 'PLY' || s.material === 'Chafer') && (s.section === 'Calendering' || s.section === 'Cutting'));
-      else if (type === 'RUBBER_MIXING') filteredScraps = monthScraps.filter((s: any) => s.material === 'Rubber' && s.section === 'Mixing');
-      else if (type === 'RN') filteredScraps = monthScraps.filter((s: any) => s.material === 'Extrusion Rubber' || s.material === 'RN' || (s.material === 'Rubber' && (s.section === 'Tire building' || s.section === 'Calendering' || s.section === 'Cutting')));
-
-      const scrap = filteredScraps.reduce((sum: number, s: any) => sum + (parseFloat(s.weight) || 0), 0);
-      const rate = usage > 0 ? (scrap / usage) * 100 : 0;
-
-      return { usage, scrap, rate };
-    };
-
-    return {
-      BIC: calculateForCategory('BIC'),
-      PLY_CHAFER: calculateForCategory('PLY_CHAFER'),
-      RUBBER_MIXING: calculateForCategory('RUBBER_MIXING'),
-      RN: calculateForCategory('RN'),
-    };
-  }, [data, days]);
-
   const getSummaryForDate = (d: Date) => {
     const formattedDate = format(d, 'yyyy-MM-dd');
     const daySummaries = data?.summaries?.filter((s: any) => s.date === formattedDate) || [];
@@ -204,69 +168,35 @@ export function MainReport() {
     
     const rowsData = [
       // BIC
-      [
-        monthlyMetrics?.BIC.usage.toFixed(0) || '0',
-        ...days.map(d => getSummaryForDate(d)?.bicUsage || '0')
-      ],
-      [
-        monthlyMetrics?.BIC.scrap.toFixed(1) || '0',
-        ...days.map(d => getCustomScrapForDate(d, 'BIC') || '0')
-      ],
-      [
-        monthlyMetrics?.BIC.rate.toFixed(3) + '%' || '0%',
-        ...days.map(d => calculateRate(getCustomScrapForDate(d, 'BIC'), getSummaryForDate(d)?.bicUsage) || '0')
-      ],
+      days.map(d => getSummaryForDate(d)?.bicUsage || '0'),
+      days.map(d => getCustomScrapForDate(d, 'BIC') || '0'),
+      days.map(d => calculateRate(getCustomScrapForDate(d, 'BIC'), getSummaryForDate(d)?.bicUsage)),
       // PLY + Chafer
-      [
-        monthlyMetrics?.PLY_CHAFER.usage.toFixed(0) || '0',
-        ...days.map(d => getSummaryForDate(d)?.plyUsage || '0')
-      ],
-      [
-        monthlyMetrics?.PLY_CHAFER.scrap.toFixed(1) || '0',
-        ...days.map(d => getCustomScrapForDate(d, 'PLY_CHAFER') || '0')
-      ],
-      [
-        monthlyMetrics?.PLY_CHAFER.rate.toFixed(3) + '%' || '0%',
-        ...days.map(d => calculateRate(getCustomScrapForDate(d, 'PLY_CHAFER'), getSummaryForDate(d)?.plyUsage) || '0')
-      ],
+      days.map(d => getSummaryForDate(d)?.plyUsage || '0'),
+      days.map(d => getCustomScrapForDate(d, 'PLY_CHAFER') || '0'),
+      days.map(d => calculateRate(getCustomScrapForDate(d, 'PLY_CHAFER'), getSummaryForDate(d)?.plyUsage)),
       // Rubber Mixing
-      [
-        monthlyMetrics?.RUBBER_MIXING.usage.toFixed(0) || '0',
-        ...days.map(d => {
-          const s = getSummaryForDate(d);
-          return s?.mixingRubberUsage || s?.rubberUsage || '0';
-        })
-      ],
-      [
-        monthlyMetrics?.RUBBER_MIXING.scrap.toFixed(1) || '0',
-        ...days.map(d => getCustomScrapForDate(d, 'RUBBER_MIXING') || '0')
-      ],
-      [
-        monthlyMetrics?.RUBBER_MIXING.rate.toFixed(3) + '%' || '0%',
-        ...days.map(d => {
-          const s = getSummaryForDate(d);
-          return calculateRate(getCustomScrapForDate(d, 'RUBBER_MIXING'), s?.mixingRubberUsage || s?.rubberUsage) || '0';
-        })
-      ],
+      days.map(d => {
+        const s = getSummaryForDate(d);
+        return s?.mixingRubberUsage || s?.rubberUsage || '0';
+      }),
+      days.map(d => getCustomScrapForDate(d, 'RUBBER_MIXING') || '0'),
+      days.map(d => {
+        const s = getSummaryForDate(d);
+        return calculateRate(getCustomScrapForDate(d, 'RUBBER_MIXING'), s?.mixingRubberUsage || s?.rubberUsage);
+      }),
       // RN
-      [
-        monthlyMetrics?.RN.usage.toFixed(0) || '0',
-        ...days.map(d => {
-          const s = getSummaryForDate(d);
-          return (Number(s?.extrusionRubberUsage || 0)).toString();
-        })
-      ],
-      [
-        monthlyMetrics?.RN.scrap.toFixed(1) || '0',
-        ...days.map(d => getCustomScrapForDate(d, 'RN') || '0')
-      ],
-      [
-        monthlyMetrics?.RN.rate.toFixed(3) + '%' || '0%',
-        ...days.map(d => {
-          const s = getSummaryForDate(d);
-          return calculateRate(getCustomScrapForDate(d, 'RN'), Number(s?.extrusionRubberUsage || 0)) || '0';
-        })
-      ],
+      days.map(d => {
+        const s = getSummaryForDate(d);
+        // Point 1: Usage includes only extrusion
+        return (Number(s?.extrusionRubberUsage || 0)).toString();
+      }),
+      days.map(d => getCustomScrapForDate(d, 'RN') || '0'),
+      days.map(d => {
+        const s = getSummaryForDate(d);
+        // Point 2: RN ratio = Total Scraps / Extrusion Usage
+        return calculateRate(getCustomScrapForDate(d, 'RN'), Number(s?.extrusionRubberUsage || 0));
+      }),
     ];
 
     const tsv = rowsData.map(row => row.join('\t')).join('\n');
@@ -609,6 +539,115 @@ export function MainReport() {
     setEditReason(scrap.reason || '');
   };
 
+  const monthlyTotals = useMemo(() => {
+    let bicUsage = 0, bicScrap = 0;
+    let plyUsage = 0, plyScrap = 0;
+    let rubberUsage = 0, rubberScrap = 0;
+    let rnUsage = 0, rnScrap = 0;
+    let hasData = false;
+
+    if (!date?.from) {
+      return {
+        hasData,
+        bicUsage, bicScrap,
+        plyUsage, plyScrap,
+        rubberUsage, rubberScrap,
+        rnUsage, rnScrap
+      };
+    }
+
+    const monthStart = startOfMonth(date.from);
+    const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+    const allDaysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+
+    allDaysInMonth.forEach(d => {
+      const summary = getSummaryForDate(d);
+      const dayBicScrap = getCustomScrapForDate(d, 'BIC');
+      const dayPlyScrap = getCustomScrapForDate(d, 'PLY_CHAFER');
+      const dayRubberScrap = getCustomScrapForDate(d, 'RUBBER_MIXING');
+      const dayRnScrap = getCustomScrapForDate(d, 'RN');
+
+      if (summary || dayBicScrap !== null || dayPlyScrap !== null || dayRubberScrap !== null || dayRnScrap !== null) {
+        hasData = true;
+      }
+
+      bicUsage += summary?.bicUsage || 0;
+      plyUsage += summary?.plyUsage || 0;
+      rubberUsage += summary?.mixingRubberUsage || summary?.rubberUsage || 0;
+      rnUsage += summary?.extrusionRubberUsage || 0;
+
+      bicScrap += dayBicScrap || 0;
+      plyScrap += dayPlyScrap || 0;
+      rubberScrap += dayRubberScrap || 0;
+      rnScrap += dayRnScrap || 0;
+    });
+
+    return {
+      hasData,
+      bicUsage, bicScrap,
+      plyUsage, plyScrap,
+      rubberUsage, rubberScrap,
+      rnUsage, rnScrap
+    };
+  }, [date, data]);
+
+  const renderTotalCell = (type: 'BIC' | 'PLY_CHAFER' | 'RUBBER_MIXING' | 'RN', rowType: 'usage' | 'scrap' | 'rate', rowId: string) => {
+    if (!monthlyTotals.hasData) return <TableCell className="border border-gray-300 bg-[#f8f9fa] text-center min-w-[100px]"></TableCell>;
+
+    let value: number | string | null = null;
+    let usage = 0;
+    let scrap = 0;
+
+    switch (type) {
+      case 'BIC': usage = monthlyTotals.bicUsage; scrap = monthlyTotals.bicScrap; break;
+      case 'PLY_CHAFER': usage = monthlyTotals.plyUsage; scrap = monthlyTotals.plyScrap; break;
+      case 'RUBBER_MIXING': usage = monthlyTotals.rubberUsage; scrap = monthlyTotals.rubberScrap; break;
+      case 'RN': usage = monthlyTotals.rnUsage; scrap = monthlyTotals.rnScrap; break;
+    }
+
+    if (rowType === 'usage') value = usage;
+    else if (rowType === 'scrap') value = scrap;
+    else if (rowType === 'rate') {
+      value = calculateRate(scrap, usage);
+    }
+
+    let displayValue: React.ReactNode = '';
+    let isOverTarget = false;
+    
+    if (value === null || value === undefined) {
+      displayValue = '';
+    } else if (typeof value === 'number') {
+      displayValue = value === 0 ? '0' : (rowType === 'usage' ? value.toFixed(0) : value.toFixed(1));
+    } else if (typeof value === 'string') {
+      if (value === '0' || value === '0%' || value === '0.000%') {
+        displayValue = '0';
+      } else {
+        displayValue = value;
+        // Check rate targets
+        if (rowId.endsWith('_rate')) {
+          const numValue = parseFloat(value);
+          const target = targets[rowId];
+          if (target && target.period !== 'not_use' && target.value > 0 && !isNaN(numValue)) {
+            // Rate is considered over target if greater, unless we explicitly configure RN rate differently.
+            // Keeping it consistent with daily logic.
+            isOverTarget = numValue > target.value;
+          }
+        }
+      }
+    }
+
+    return (
+      <TableCell className={cn(
+        "border border-gray-300 text-center font-bold bg-[#f8f9fa] text-blue-900 min-w-[100px]",
+        isOverTarget && "text-red-600 font-bold bg-red-50"
+      )}
+      style={{ fontSize: `${rowFontSizes[rowId] || 17}px` }}
+      >
+        {displayValue}
+      </TableCell>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {error && (
@@ -697,9 +736,9 @@ export function MainReport() {
                     <div>Date</div>
                     <div className="text-sm font-normal text-gray-600">日期</div>
                   </TableHead>
-                  <TableHead className="border border-gray-300 bg-blue-50 font-semibold text-center min-w-[120px]">
-                    <div>Monthly Scrap</div>
-                    <div className="text-sm font-normal text-gray-600">每月報廢加總</div>
+                  <TableHead className="border border-gray-300 bg-[#f8f9fa] font-semibold text-center min-w-[100px] text-lg text-blue-800">
+                    <div>Monthly Total</div>
+                    <div className="text-sm font-normal text-slate-500">月度總計</div>
                   </TableHead>
                   {days.map((d, i) => (
                     <TableHead key={i} className="border border-gray-300 bg-gray-50 font-semibold text-center min-w-[80px] text-lg">
@@ -711,9 +750,7 @@ export function MainReport() {
               <TableBody>
                 <TableRow>
                   <RowHeader title="BIC usage weight (kg)" subtitle="鋼絲使用重量(kg)" rowId="bic_usage" />
-                  <TableCell className="border border-gray-300 !bg-blue-50/30 text-center font-bold" style={{ fontSize: `${rowFontSizes['bic_usage'] || 17}px` }}>
-                    {monthlyMetrics?.BIC.usage.toFixed(0)}
-                  </TableCell>
+                  {renderTotalCell('BIC', 'usage', 'bic_usage')}
                   {days.map((d) => {
                     const summary = getSummaryForDate(d);
                     return renderCell(d, 'BIC', summary ? (summary.bicUsage ?? 0) : null, 'bic_usage');
@@ -721,16 +758,12 @@ export function MainReport() {
                 </TableRow>
                 <TableRow>
                   <RowHeader title="BIC scrapping weight (kg)" subtitle="鋼絲報廢公斤數(kg)" rowId="bic_scrap" />
-                  <TableCell className="border border-gray-300 !bg-blue-50/30 text-center font-bold" style={{ fontSize: `${rowFontSizes['bic_scrap'] || 17}px` }}>
-                    {monthlyMetrics?.BIC.scrap.toFixed(1)}
-                  </TableCell>
+                  {renderTotalCell('BIC', 'scrap', 'bic_scrap')}
                   {days.map((d) => renderCell(d, 'BIC', getCustomScrapForDate(d, 'BIC'), 'bic_scrap'))}
                 </TableRow>
                 <TableRow className="bg-[#e2f0d9]">
                   <RowHeader title="BIC scrap rate (%)" subtitle="鋼絲報廢率(%)" rowId="bic_rate" />
-                  <TableCell className="border border-gray-300 !bg-blue-50/30 text-center font-bold" style={{ fontSize: `${rowFontSizes['bic_rate'] || 17}px` }}>
-                    {monthlyMetrics?.BIC.rate.toFixed(3)}%
-                  </TableCell>
+                  {renderTotalCell('BIC', 'rate', 'bic_rate')}
                   {days.map((d) => {
                     const summary = getSummaryForDate(d);
                     return renderCell(d, 'BIC', calculateRate(getCustomScrapForDate(d, 'BIC'), summary ? (summary.bicUsage ?? 0) : null), 'bic_rate');
@@ -740,9 +773,7 @@ export function MainReport() {
                 {/* PLY + Chafer */}
                 <TableRow>
                   <RowHeader title="PLY & Chafer usage weight (kg)" subtitle="簾紗及防擦布使用重量(kg)" rowId="ply_usage" />
-                  <TableCell className="border border-gray-300 !bg-blue-50/30 text-center font-bold" style={{ fontSize: `${rowFontSizes['ply_usage'] || 17}px` }}>
-                    {monthlyMetrics?.PLY_CHAFER.usage.toFixed(0)}
-                  </TableCell>
+                  {renderTotalCell('PLY_CHAFER', 'usage', 'ply_usage')}
                   {days.map((d) => {
                     const summary = getSummaryForDate(d);
                     return renderCell(d, 'PLY_CHAFER', summary ? (summary.plyUsage ?? 0) : null, 'ply_usage');
@@ -750,16 +781,12 @@ export function MainReport() {
                 </TableRow>
                 <TableRow>
                   <RowHeader title="PLY & Chafer scrap weight (kg)" subtitle="簾紗及防擦布報廢公斤數(kg)" rowId="ply_scrap" />
-                  <TableCell className="border border-gray-300 !bg-blue-50/30 text-center font-bold" style={{ fontSize: `${rowFontSizes['ply_scrap'] || 17}px` }}>
-                    {monthlyMetrics?.PLY_CHAFER.scrap.toFixed(1)}
-                  </TableCell>
+                  {renderTotalCell('PLY_CHAFER', 'scrap', 'ply_scrap')}
                   {days.map((d) => renderCell(d, 'PLY_CHAFER', getCustomScrapForDate(d, 'PLY_CHAFER'), 'ply_scrap'))}
                 </TableRow>
                 <TableRow className="bg-[#fce4d6]">
                   <RowHeader title="PLY & Chafer scrap rate (%)" subtitle="簾紗及防擦布報廢率(%)" rowId="ply_rate" />
-                  <TableCell className="border border-gray-300 !bg-blue-50/30 text-center font-bold" style={{ fontSize: `${rowFontSizes['ply_rate'] || 17}px` }}>
-                    {monthlyMetrics?.PLY_CHAFER.rate.toFixed(3)}%
-                  </TableCell>
+                  {renderTotalCell('PLY_CHAFER', 'rate', 'ply_rate')}
                   {days.map((d) => {
                     const summary = getSummaryForDate(d);
                     return renderCell(d, 'PLY_CHAFER', calculateRate(getCustomScrapForDate(d, 'PLY_CHAFER'), summary ? (summary.plyUsage ?? 0) : null), 'ply_rate');
@@ -769,9 +796,7 @@ export function MainReport() {
                 {/* Rubber (Mixing) */}
                 <TableRow>
                   <RowHeader title="Rubber usage weight (Mixing) (kg)" subtitle="膠料使用重量(kg)" rowId="rubber_usage" />
-                  <TableCell className="border border-gray-300 !bg-blue-50/30 text-center font-bold" style={{ fontSize: `${rowFontSizes['rubber_usage'] || 17}px` }}>
-                    {monthlyMetrics?.RUBBER_MIXING.usage.toFixed(0)}
-                  </TableCell>
+                  {renderTotalCell('RUBBER_MIXING', 'usage', 'rubber_usage')}
                   {days.map((d) => {
                     const summary = getSummaryForDate(d);
                     return renderCell(d, 'RUBBER_MIXING', summary ? (summary.mixingRubberUsage ?? summary.rubberUsage ?? 0) : null, 'rubber_usage');
@@ -779,16 +804,12 @@ export function MainReport() {
                 </TableRow>
                 <TableRow>
                   <RowHeader title="Rubber scrap weight (Mixing) (kg)" subtitle="膠料報廢公斤數(kg)" rowId="rubber_scrap" />
-                  <TableCell className="border border-gray-300 !bg-blue-50/30 text-center font-bold" style={{ fontSize: `${rowFontSizes['rubber_scrap'] || 17}px` }}>
-                    {monthlyMetrics?.RUBBER_MIXING.scrap.toFixed(1)}
-                  </TableCell>
+                  {renderTotalCell('RUBBER_MIXING', 'scrap', 'rubber_scrap')}
                   {days.map((d) => renderCell(d, 'RUBBER_MIXING', getCustomScrapForDate(d, 'RUBBER_MIXING'), 'rubber_scrap'))}
                 </TableRow>
                 <TableRow className="bg-[#ddebf7]">
                   <RowHeader title="Rubber scrap rate (Mixing) (%)" subtitle="膠料報廢率(%)" rowId="rubber_rate" />
-                  <TableCell className="border border-gray-300 !bg-blue-50/30 text-center font-bold" style={{ fontSize: `${rowFontSizes['rubber_rate'] || 17}px` }}>
-                    {monthlyMetrics?.RUBBER_MIXING.rate.toFixed(3)}%
-                  </TableCell>
+                  {renderTotalCell('RUBBER_MIXING', 'rate', 'rubber_rate')}
                   {days.map((d) => {
                     const summary = getSummaryForDate(d);
                     return renderCell(d, 'RUBBER_MIXING', calculateRate(getCustomScrapForDate(d, 'RUBBER_MIXING'), summary ? (summary.mixingRubberUsage ?? summary.rubberUsage ?? 0) : null), 'rubber_rate');
@@ -798,9 +819,7 @@ export function MainReport() {
                 {/* RN (Rubber Recycling) */}
                 <TableRow>
                   <RowHeader title="Extrusion rubber usage (kg)" subtitle="擠出膠料使用重量(kg)" rowId="rn_usage" />
-                  <TableCell className="border border-gray-300 !bg-blue-50/30 text-center font-bold" style={{ fontSize: `${rowFontSizes['rn_usage'] || 17}px` }}>
-                    {monthlyMetrics?.RN.usage.toFixed(0)}
-                  </TableCell>
+                  {renderTotalCell('RN', 'usage', 'rn_usage')}
                   {days.map((d) => {
                     const summary = getSummaryForDate(d);
                     return renderCell(d, 'RN', summary ? (summary.extrusionRubberUsage ?? 0) : null, 'rn_usage');
@@ -808,16 +827,12 @@ export function MainReport() {
                 </TableRow>
                 <TableRow>
                   <RowHeader title="RN generation weight (kg)" subtitle="RN產生重量(kg)" rowId="rn_scrap" />
-                  <TableCell className="border border-gray-300 !bg-blue-50/30 text-center font-bold" style={{ fontSize: `${rowFontSizes['rn_scrap'] || 17}px` }}>
-                    {monthlyMetrics?.RN.scrap.toFixed(1)}
-                  </TableCell>
+                  {renderTotalCell('RN', 'scrap', 'rn_scrap')}
                   {days.map((d) => renderCell(d, 'RN', getCustomScrapForDate(d, 'RN'), 'rn_scrap'))}
                 </TableRow>
                 <TableRow className="bg-[#ddebf7]">
                   <RowHeader title="Rubber recovery rate (%)" subtitle="膠料回收率(%)" rowId="rn_rate" />
-                  <TableCell className="border border-gray-300 !bg-blue-50/30 text-center font-bold" style={{ fontSize: `${rowFontSizes['rn_rate'] || 17}px` }}>
-                    {monthlyMetrics?.RN.rate.toFixed(3)}%
-                  </TableCell>
+                  {renderTotalCell('RN', 'rate', 'rn_rate')}
                   {days.map((d) => {
                     const summary = getSummaryForDate(d);
                     const usageTotal = summary ? (summary.extrusionRubberUsage ?? 0) : 0;
@@ -865,7 +880,7 @@ export function MainReport() {
                 <Table className="border">
                   <TableHeader>
                     <TableRow>
-                      {['Date', 'Shift', 'Section', 'Material Type', 'Material Name', 'Weight (kg)', 'Reason', 'Picture', 'Recorded At'].map((head, idx) => (
+                      {['Date', 'Shift', 'Section', 'Material Type', 'Material Name', 'Weight (kg)', 'Main Reason', 'Reason', 'Picture', 'Recorded At'].map((head, idx) => (
                         <TableHead 
                           key={idx} 
                           className={cn("cursor-pointer hover:bg-gray-100 transition-colors", highlightedCols.includes(idx) && "bg-yellow-100 text-yellow-900 font-bold")}
@@ -890,6 +905,9 @@ export function MainReport() {
                         <TableCell className={cn(highlightedCols.includes(4) && "bg-yellow-50")}>{scrap.materialName || '-'}</TableCell>
                         <TableCell className={cn(highlightedCols.includes(5) && "bg-yellow-50")}>{typeof scrap.weight === 'number' ? (scrap.weight === 0 ? '0' : scrap.weight.toFixed(1)) : (scrap.weight || '0')}</TableCell>
                         <TableCell className={cn(highlightedCols.includes(6) && "bg-yellow-50")}>
+                          {scrap.mainReason || '-'}
+                        </TableCell>
+                        <TableCell className={cn(highlightedCols.includes(7) && "bg-yellow-50")}>
                           {editingScrap === scrap.timestamp ? (
                             <div className="flex items-center gap-2">
                               <input 
@@ -932,7 +950,7 @@ export function MainReport() {
                             </div>
                           )}
                         </TableCell>
-                        <TableCell className={cn(highlightedCols.includes(7) && "bg-yellow-50")}>
+                        <TableCell className={cn(highlightedCols.includes(8) && "bg-yellow-50")}>
                           {scrap.imageUrl ? (
                             <a href={scrap.imageUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                               View Image
@@ -941,7 +959,7 @@ export function MainReport() {
                             <span className="text-muted-foreground text-sm">No image</span>
                           )}
                         </TableCell>
-                        <TableCell className={cn("text-muted-foreground whitespace-nowrap", highlightedCols.includes(8) && "bg-yellow-50")}>{formatToIST(scrap.timestamp || scrap.time || '-')}</TableCell>
+                        <TableCell className={cn("text-muted-foreground whitespace-nowrap", highlightedCols.includes(9) && "bg-yellow-50")}>{formatToIST(scrap.timestamp || scrap.time || '-')}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
